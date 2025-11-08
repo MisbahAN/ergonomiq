@@ -1,0 +1,131 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222.2 47.4% 11.2%;
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 47.4% 11.2%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 47.4% 11.2%;
+    --primary: 222.2 47.4% 11.2%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 222.2 84% 4.9%;
+    --radius: 0.5rem;
+  }
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 210 40% 98%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 212.7 26.8% 83.9%;
+  }
+  * { @apply border-border; }
+  body { @apply bg-background text-foreground; }
+}
+
+* {
+  box-sizing: border-box;
+  padding: 0;
+  margin: 0;
+}
+
+html,
+body {
+  max-width: 100vw;
+  overflow-x: hidden;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+@media (prefers-color-scheme: dark) {
+  html {
+    color-scheme: dark;
+  }
+}
+
+/* Custom styles for pose detection */
+.pose-container {
+  position: relative;
+  display: inline-block;
+}
+
+.pose-video {
+  transform: scaleX(-1); /* Mirror the video */
+  border-radius: 8px;
+}
+
+.pose-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform: scaleX(-1); /* Mirror the canvas to match video */
+  pointer-events: none;
+}
+
+.status-badge {
+  @apply inline-flex items-center px-3 py-1 rounded-full text-sm font-medium;
+}
+
+.status-good {
+  @apply bg-green-100 text-green-800 border border-green-200;
+}
+
+.status-slouching {
+  @apply bg-yellow-100 text-yellow-800 border border-yellow-200;
+}
+
+
+
+.status-borderline {
+  @apply bg-gray-100 text-gray-800 border border-gray-200;
+}
+
+.confidence-bar {
+  @apply w-full bg-gray-200 rounded-full h-2;
+}
+
+.confidence-fill {
+  @apply h-2 rounded-full transition-all duration-300;
+}
+
+.confidence-low {
+  @apply bg-red-500;
+}
+
+.confidence-medium {
+  @apply bg-yellow-500;
+}
+
+.confidence-high {
+  @apply bg-green-500;
+}
