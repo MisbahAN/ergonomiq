@@ -60,7 +60,7 @@ export function AuthenticatedLayout({ children }: AuthenticatedLayoutProps) {
       <footer className="border-t border-border/50 mt-12">
         <div className="max-w-7xl mx-auto px-8 py-6 text-center">
           <p className="text-xs text-muted-foreground hover:text-primary transition-colors cursor-default inline-block hover-scale">
-            Posturely · Team 777777 · Hackathon 2025 · MedTech & EduTech Track
+            Posturely · Team 777777 · Nathacks 2025 · MedTech & EduTech Track
           </p>
         </div>
       </footer>

@@ -472,7 +472,7 @@ export default function Auth() {
 
           {/* Footer */}
           <div className="mt-8 text-center text-sm text-muted-foreground">
-            <p>Posturely — Team 777777 @ Hackathon 2025</p>
+            <p>Posturely — Team 777777 @ Nathacks 2025</p>
           </div>
         </div>
       </div>
