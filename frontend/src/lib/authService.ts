@@ -91,6 +91,27 @@ export const authService = {
     const provider = new GoogleAuthProvider();
     try {
       const userCredential = await signInWithPopup(auth, provider);
+      
+      // Check if user profile exists in Firestore, create if it doesn't
+      try {
+        const { firestoreService } = await import("./firestoreService");
+        const existingUser = await firestoreService.getUser(userCredential.user.uid);
+        
+        if (!existingUser) {
+          // Create user profile in Firestore if it doesn't exist
+          await firestoreService.createUser({
+            uid: userCredential.user.uid,
+            email: userCredential.user.email || "",
+            name: userCredential.user.displayName || userCredential.user.email?.split('@')[0] || "",
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          });
+        }
+      } catch (dbError) {
+        console.error("Error creating/updating user profile in Firestore:", dbError);
+        // Don't fail the login if Firestore creation fails
+      }
+      
       return { user: userCredential.user, error: null };
     } catch (error: any) {
       console.error("Google login error:", error.message);
