@@ -5,7 +5,8 @@ import {
   User,
   GoogleAuthProvider,
   signInWithPopup,
-  sendPasswordResetEmail
+  sendPasswordResetEmail,
+  updateProfile
 } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 
@@ -48,11 +49,26 @@ export const authService = {
         credentials.password
       );
 
-      // Optionally update the user's display name
+      // Update the user's display name
       if (credentials.name) {
         await userCredential.user.updateProfile({
           displayName: credentials.name,
         });
+      }
+
+      // Create a user profile document in Firestore
+      try {
+        const { firestoreService } = await import("./firestoreService");
+        await firestoreService.createUser({
+          uid: userCredential.user.uid,
+          email: userCredential.user.email || credentials.email,
+          name: credentials.name || credentials.email.split('@')[0],
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        });
+      } catch (dbError) {
+        console.error("Error creating user profile in Firestore:", dbError);
+        // Don't fail the registration if Firestore creation fails
       }
 
       return { user: userCredential.user, error: null };
@@ -95,7 +111,7 @@ export const authService = {
   async updateProfile(profileData: { displayName?: string; photoURL?: string }): Promise<void> {
     const currentUser = auth.currentUser;
     if (currentUser) {
-      await currentUser.updateProfile(profileData);
+      await updateProfile(currentUser, profileData);
     } else {
       throw new Error("User not authenticated");
     }

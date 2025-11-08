@@ -9,47 +9,126 @@ import { Camera, Mail, Bell, CheckCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuthStore } from "@/hooks/useAuthStore";
 import { authService } from "@/lib/authService";
+import { firestoreService } from "@/lib/firestoreService";
 
 export default function Profile() {
   const { toast } = useToast();
   const { user } = useAuthStore();
 
   // Profile state
-  const [fullName, setFullName] = useState(user?.displayName || "");
-  const [email, setEmail] = useState(user?.email || "");
+  const [fullName, setFullName] = useState("");
+  const [email, setEmail] = useState("");
   const [occupation, setOccupation] = useState("");
   const [ergonomicGoal, setErgonomicGoal] = useState("both");
   const [age, setAge] = useState("");
   const [gender, setGender] = useState("");
 
-  // Notification state
-  const [emailAlertsEnabled, setEmailAlertsEnabled] = useState(true);
-  const [notificationFrequency, setNotificationFrequency] = useState("2hours");
-
-  // Initialize user data when component mounts
+  // Initialize user data when component mounts or user changes
   useEffect(() => {
     if (user) {
-      setFullName(user.displayName || "");
+      // Set initial values from Firebase Auth
+      setFullName(user.displayName || user.email?.split('@')[0] || "");
       setEmail(user.email || "");
     }
   }, [user]);
 
+  // Notification state
+  const [emailAlertsEnabled, setEmailAlertsEnabled] = useState(true);
+  const [notificationFrequency, setNotificationFrequency] = useState("2hours");
+
+  // Fetch user profile from Firestore when user is available
+  useEffect(() => {
+    const fetchUserProfile = async () => {
+      if (user) {
+        try {
+          // Fetch additional profile data from Firestore
+          const profileData = await firestoreService.getUser(user.uid);
+          console.log("Fetched profile data:", profileData); // Debug log
+          if (profileData) {
+            // Update form fields with values from Firestore, prioritizing Firestore data over Auth data
+            setFullName(profileData.name || user.displayName || user.email?.split('@')[0] || "");
+            setOccupation(profileData.occupation || "");
+            setErgonomicGoal(profileData.ergonomicGoal || "both");
+            setAge(profileData.age?.toString() || "");
+            setGender(profileData.gender || "");
+          }
+        } catch (error) {
+          console.error("Error fetching user profile:", error);
+          // Continue with default values if profile fetch fails
+        }
+      }
+    };
+
+    fetchUserProfile();
+  }, [user]);
+
   const handleSaveProfile = async () => {
     try {
-      // Update user profile in Firebase
-      if (user) {
+      // Validate user exists
+      if (!user) {
+        toast({
+          title: "Authentication error",
+          description: "You must be logged in to update your profile.",
+          variant: "destructive",
+          duration: 3000,
+        });
+        return;
+      }
+
+      // Update user profile in Firebase Auth (for display name)
+      try {
         await authService.updateProfile({ displayName: fullName });
+      } catch (authError) {
+        console.error("Error updating auth profile:", authError);
+        throw new Error("Failed to update authentication profile");
       }
       
+      // Prepare profile data for Firestore with proper type handling
+      const profileData: any = {
+        name: fullName,
+        email: user.email,
+        occupation,
+        ergonomicGoal,
+        gender,
+        updatedAt: new Date(),
+      };
+      
+      // Only add age if it's a valid number within the allowed range (0-67)
+      if (age && !isNaN(parseInt(age))) {
+        const ageValue = parseInt(age);
+        if (ageValue >= 0 && ageValue <= 67) {
+          profileData.age = ageValue;
+        } else {
+          toast({
+            title: "Invalid age",
+            description: "Age must be between 0 and 67.",
+            variant: "destructive",
+            duration: 3000,
+          });
+          return; // Stop execution if age is out of range
+        }
+      }
+      
+      console.log("Saving profile data:", profileData); // Debug log
+      
+      // Update comprehensive user profile in Firestore
+      try {
+        await firestoreService.updateUser(user.uid, profileData);
+      } catch (dbError) {
+        console.error("Error updating Firestore profile:", dbError);
+        throw new Error("Failed to update profile database");
+      }
+
       toast({
         title: "Profile updated successfully!",
         description: "Your profile settings have been saved.",
         duration: 3000,
       });
-    } catch (error) {
+    } catch (error: any) {
+      console.error("Profile update error:", error);
       toast({
         title: "Error updating profile",
-        description: "There was an issue saving your profile.",
+        description: error.message || "There was an issue saving your profile.",
         variant: "destructive",
         duration: 3000,
       });
@@ -185,10 +264,18 @@ export default function Profile() {
                   <Input
                     id="age"
                     value={age}
-                    onChange={(e) => setAge(e.target.value)}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      // Only allow numbers between 0 and 67
+                      if (value === "" || (Number(value) >= 0 && Number(value) <= 67)) {
+                        setAge(value);
+                      }
+                    }}
                     className="glass-strong border-border/50 focus:border-primary"
-                    placeholder="Your age"
+                    placeholder="0-67"
                     type="number"
+                    min="0"
+                    max="67"
                   />
                 </div>
                 <div>

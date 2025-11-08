@@ -6,6 +6,7 @@ import {
   addDoc, 
   updateDoc, 
   deleteDoc, 
+  setDoc,
   query, 
   where, 
   orderBy, 
@@ -98,10 +99,24 @@ export const firestoreService = {
   async updateUser(userId: string, userData: Partial<IUserData>): Promise<void> {
     try {
       const userRef = doc(db, "users", userId);
-      await updateDoc(userRef, {
-        ...userData,
-        updatedAt: serverTimestamp(),
-      });
+      // Check if user document exists
+      const userDoc = await getDoc(userRef);
+      
+      if (userDoc.exists()) {
+        // Update existing user document
+        await updateDoc(userRef, {
+          ...userData,
+          updatedAt: serverTimestamp(),
+        });
+      } else {
+        // Create user document if it doesn't exist
+        await setDoc(userRef, {
+          ...userData,
+          uid: userId,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        });
+      }
     } catch (error) {
       console.error("Error updating user:", error);
       throw error;
