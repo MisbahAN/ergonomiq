@@ -1,0 +1,46 @@
+# Virtual environments
+all_models_env/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Model data (if large files)
+*.dat
+*.dat.bz2
+
+# Audio files (if they become large)
+*.mp3
+*.wav
+*.m4a
+
+# Logs
+*.log
