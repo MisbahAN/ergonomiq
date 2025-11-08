@@ -1,6 +1,9 @@
-import { ReactNode, useEffect, useState } from "react";
+import { ReactNode, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { DashboardNavbar } from "@/components/DashboardNavbar";
+import { useAuthStore } from "@/hooks/useAuthStore";
+import { onAuthStateChanged } from "firebase/auth";
+import { auth } from "@/lib/firebase";
 
 interface AuthenticatedLayoutProps {
   children: ReactNode;
@@ -9,24 +12,28 @@ interface AuthenticatedLayoutProps {
 export function AuthenticatedLayout({ children }: AuthenticatedLayoutProps) {
   const navigate = useNavigate();
   const location = useLocation();
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  const { isAuthenticated, login, logout } = useAuthStore();
 
   useEffect(() => {
-    // Mock authentication check - in real app, check token/session
-    const authStatus = localStorage.getItem("isAuthenticated");
-    
-    if (authStatus === "true") {
-      setIsAuthenticated(true);
-    } else {
-      // Redirect to login if not authenticated
-      navigate("/login", { state: { from: location.pathname } });
-    }
-    
-    setIsLoading(false);
-  }, [navigate, location.pathname]);
+    // Listen for auth state changes
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        // User is signed in
+        login(user);
+      } else {
+        // User is signed out
+        logout();
+        // Redirect to login if not authenticated
+        navigate("/login", { state: { from: location.pathname } });
+      }
+    });
 
-  if (isLoading) {
+    // Cleanup subscription on unmount
+    return () => unsubscribe();
+  }, [navigate, location.pathname, login, logout]);
+
+  // Show loading state while checking auth status
+  if (!isAuthenticated) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="glass rounded-2xl p-8">
@@ -39,15 +46,11 @@ export function AuthenticatedLayout({ children }: AuthenticatedLayoutProps) {
     );
   }
 
-  if (!isAuthenticated) {
-    return null; // Will redirect via useEffect
-  }
-
   return (
     <div className="min-h-screen animate-fade-in">
       <DashboardNavbar />
       <main>{children}</main>
-      
+
       {/* Global Footer */}
       <footer className="border-t border-border/50 mt-12">
         <div className="max-w-7xl mx-auto px-8 py-6 text-center">

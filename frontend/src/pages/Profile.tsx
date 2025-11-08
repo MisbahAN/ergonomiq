@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -7,28 +7,132 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Camera, Mail, Bell, CheckCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useAuthStore } from "@/hooks/useAuthStore";
+import { authService } from "@/lib/authService";
+import { firestoreService } from "@/lib/firestoreService";
 
 export default function Profile() {
   const { toast } = useToast();
-  
+  const { user } = useAuthStore();
+
   // Profile state
-  const [fullName, setFullName] = useState("Misbah Ahmed");
-  const [occupation, setOccupation] = useState("Software Engineer");
+  const [fullName, setFullName] = useState("");
+  const [email, setEmail] = useState("");
+  const [occupation, setOccupation] = useState("");
   const [ergonomicGoal, setErgonomicGoal] = useState("both");
   const [age, setAge] = useState("");
   const [gender, setGender] = useState("");
 
+  // Initialize user data when component mounts or user changes
+  useEffect(() => {
+    if (user) {
+      // Set initial values from Firebase Auth
+      setFullName(user.displayName || user.email?.split('@')[0] || "");
+      setEmail(user.email || "");
+    }
+  }, [user]);
+
   // Notification state
   const [emailAlertsEnabled, setEmailAlertsEnabled] = useState(true);
-  const [email, setEmail] = useState("misbah@posturely.com");
   const [notificationFrequency, setNotificationFrequency] = useState("2hours");
 
-  const handleSaveProfile = () => {
-    toast({
-      title: "Profile updated successfully!",
-      description: "Your profile settings have been saved.",
-      duration: 3000,
-    });
+  // Fetch user profile from Firestore when user is available
+  useEffect(() => {
+    const fetchUserProfile = async () => {
+      if (user) {
+        try {
+          // Fetch additional profile data from Firestore
+          const profileData = await firestoreService.getUser(user.uid);
+          console.log("Fetched profile data:", profileData); // Debug log
+          if (profileData) {
+            // Update form fields with values from Firestore, prioritizing Firestore data over Auth data
+            setFullName(profileData.name || user.displayName || user.email?.split('@')[0] || "");
+            setOccupation(profileData.occupation || "");
+            setErgonomicGoal(profileData.ergonomicGoal || "both");
+            setAge(profileData.age?.toString() || "");
+            setGender(profileData.gender || "");
+          }
+        } catch (error) {
+          console.error("Error fetching user profile:", error);
+          // Continue with default values if profile fetch fails
+        }
+      }
+    };
+
+    fetchUserProfile();
+  }, [user]);
+
+  const handleSaveProfile = async () => {
+    try {
+      // Validate user exists
+      if (!user) {
+        toast({
+          title: "Authentication error",
+          description: "You must be logged in to update your profile.",
+          variant: "destructive",
+          duration: 3000,
+        });
+        return;
+      }
+
+      // Update user profile in Firebase Auth (for display name)
+      try {
+        await authService.updateProfile({ displayName: fullName });
+      } catch (authError) {
+        console.error("Error updating auth profile:", authError);
+        throw new Error("Failed to update authentication profile");
+      }
+      
+      // Prepare profile data for Firestore with proper type handling
+      const profileData: any = {
+        name: fullName,
+        email: user.email,
+        occupation,
+        ergonomicGoal,
+        gender,
+        updatedAt: new Date(),
+      };
+      
+      // Only add age if it's a valid number within the allowed range (0-67)
+      if (age && !isNaN(parseInt(age))) {
+        const ageValue = parseInt(age);
+        if (ageValue >= 0 && ageValue <= 67) {
+          profileData.age = ageValue;
+        } else {
+          toast({
+            title: "Invalid age",
+            description: "Age must be between 0 and 67.",
+            variant: "destructive",
+            duration: 3000,
+          });
+          return; // Stop execution if age is out of range
+        }
+      }
+      
+      console.log("Saving profile data:", profileData); // Debug log
+      
+      // Update comprehensive user profile in Firestore
+      try {
+        await firestoreService.updateUser(user.uid, profileData);
+      } catch (dbError) {
+        console.error("Error updating Firestore profile:", dbError);
+        throw new Error("Failed to update profile database");
+      }
+
+      toast({
+        title: "Profile updated successfully!",
+        description: "Your profile settings have been saved.",
+        duration: 3000,
+      });
+    } catch (error: any) {
+      console.error("Profile update error:", error);
+      toast({
+        title: "Error updating profile",
+        description: error.message || "There was an issue saving your profile.",
+        variant: "destructive",
+        duration: 3000,
+      });
+    }
   };
 
   const handleSaveEmail = () => {
@@ -110,6 +214,20 @@ export default function Profile() {
               </div>
 
               <div>
+                <Label htmlFor="email" className="text-sm font-medium mb-2 block">
+                  Email
+                </Label>
+                <Input
+                  id="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="glass-strong border-border/50 focus:border-primary"
+                  placeholder="Enter your email"
+                  disabled // Can't edit email directly here in Firebase
+                />
+              </div>
+
+              <div>
                 <Label htmlFor="occupation" className="text-sm font-medium mb-2 block">
                   Occupation / Role
                 </Label>
@@ -146,10 +264,18 @@ export default function Profile() {
                   <Input
                     id="age"
                     value={age}
-                    onChange={(e) => setAge(e.target.value)}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      // Only allow numbers between 0 and 67
+                      if (value === "" || (Number(value) >= 0 && Number(value) <= 67)) {
+                        setAge(value);
+                      }
+                    }}
                     className="glass-strong border-border/50 focus:border-primary"
-                    placeholder="Your age"
+                    placeholder="0-67"
                     type="number"
+                    min="0"
+                    max="67"
                   />
                 </div>
                 <div>
@@ -265,7 +391,7 @@ export default function Profile() {
                 <span className="text-primary">⏰</span>
                 Notification Frequency
               </h3>
-              
+
               <RadioGroup value={notificationFrequency} onValueChange={setNotificationFrequency}>
                 <div className="space-y-3">
                   <div className="flex items-center space-x-3 p-3 rounded-lg glass-strong border border-border/50 hover:border-primary/50 transition-colors">
@@ -275,7 +401,7 @@ export default function Profile() {
                       <p className="text-xs text-muted-foreground">Frequent check-ins</p>
                     </Label>
                   </div>
-                  
+
                   <div className="flex items-center space-x-3 p-3 rounded-lg glass-strong border border-border/50 hover:border-primary/50 transition-colors">
                     <RadioGroupItem value="2hours" id="2hours" />
                     <Label htmlFor="2hours" className="cursor-pointer flex-1">
@@ -283,7 +409,7 @@ export default function Profile() {
                       <p className="text-xs text-muted-foreground">Balanced reminders</p>
                     </Label>
                   </div>
-                  
+
                   <div className="flex items-center space-x-3 p-3 rounded-lg glass-strong border border-border/50 hover:border-primary/50 transition-colors">
                     <RadioGroupItem value="daily" id="daily" />
                     <Label htmlFor="daily" className="cursor-pointer flex-1">
