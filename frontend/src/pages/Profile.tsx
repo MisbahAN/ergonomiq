@@ -535,7 +535,7 @@ export default function Profile() {
         {/* Coming Soon Banner */}
         <div className="glass rounded-2xl px-6 py-4 mb-8 border border-primary/20 bg-primary/5">
           <p className="text-sm text-center text-foreground/80">
-            💡 Slack & Discord integrations coming soon — email reminders available for hackathon demo.
+            💡 Slack & Discord integrations coming soon — email reminders available for the Nathacks 2025 demo.
           </p>
         </div>
 

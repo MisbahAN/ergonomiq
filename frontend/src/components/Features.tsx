@@ -1,32 +1,127 @@
-import { Activity, Hand, Lightbulb, BarChart3 } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  Activity,
+  Hand,
+  Eye,
+  Lightbulb,
+  RefreshCw,
+  BarChart3,
+  Sparkles,
+} from "lucide-react";
+
+const SCROLL_SPEED = 0.3;
+const DUPLICATE_SETS = 10;
 
 const features = [
   {
     icon: Activity,
     title: "Real-time Posture Detection",
-    description: "Advanced AI analyzes your sitting posture continuously, alerting you to slouching and misalignment before they cause problems.",
+    description:
+      "Advanced AI analyzes your sitting posture continuously, alerting you to slouching and misalignment before they cause problems.",
   },
   {
     icon: Hand,
     title: "Wrist Health Insights",
-    description: "Monitor repetitive strain indicators and get personalized recommendations to prevent carpal tunnel and other RSI conditions.",
+    description:
+      "Monitor repetitive strain indicators and get personalized recommendations to prevent carpal tunnel and other RSI conditions.",
+  },
+  {
+    icon: Eye,
+    title: "Eye Stress Tracking",
+    description:
+      "Calibrated vision checks watch for eye strain triggers and prompt you to follow the 20-20-20 rule before fatigue sets in.",
   },
   {
     icon: Lightbulb,
     title: "Personalized Ergonomic Tips",
-    description: "Receive custom advice based on your unique work habits, desk setup, and movement patterns throughout the day.",
+    description:
+      "Receive custom advice based on your unique work habits, desk setup, and posture data throughout the day.",
+  },
+  {
+    icon: RefreshCw,
+    title: "Guided Micro-breaks",
+    description:
+      "Dynamic routines cue gentle stretches, hydration reminders, and mindful breathing so you keep moving without leaving flow.",
   },
   {
     icon: BarChart3,
     title: "Analytics Dashboard",
-    description: "Track your progress over time with detailed metrics, trends, and insights to improve your workspace health.",
+    description:
+      "Track your progress over time with detailed metrics, trends, and insights to improve your workspace health.",
+  },
+  {
+    icon: Sparkles,
+    title: "Ambient Focus Lighting",
+    description:
+      "Light-level sensing balances ambient glow and screen brightness to keep circadian rhythms stable throughout the day.",
   },
 ];
 
 export function Features() {
+  const beltRef = useRef<HTMLDivElement | null>(null);
+  const animationRef = useRef<number | null>(null);
+  const beltWidthRef = useRef(0);
+
+  const [offset, setOffset] = useState(0);
+  const [isHovering, setIsHovering] = useState(false);
+
+  const repeatedFeatures = useMemo(
+    () => Array.from({ length: DUPLICATE_SETS }, () => features).flat(),
+    []
+  );
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const belt = beltRef.current;
+    if (!belt) return;
+
+    const updateWidth = () => {
+      beltWidthRef.current = belt.scrollWidth / 2;
+    };
+
+    updateWidth();
+
+    if (typeof ResizeObserver !== "undefined") {
+      const observer = new ResizeObserver(updateWidth);
+      observer.observe(belt);
+      return () => observer.disconnect();
+    }
+
+    window.addEventListener("resize", updateWidth);
+    return () => window.removeEventListener("resize", updateWidth);
+  }, [repeatedFeatures]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const animate = () => {
+      setOffset((prev) => {
+        if (isHovering) return prev;
+        let next = prev - SCROLL_SPEED;
+        const limit = beltWidthRef.current;
+
+        if (limit > 0 && next <= -limit) {
+          next += limit;
+        }
+
+        return next;
+      });
+
+      animationRef.current = window.requestAnimationFrame(animate);
+    };
+
+    animationRef.current = window.requestAnimationFrame(animate);
+
+    return () => {
+      if (animationRef.current) {
+        window.cancelAnimationFrame(animationRef.current);
+      }
+    };
+  }, [isHovering]);
+
   return (
     <section id="features" className="py-20 px-6">
-      <div className="max-w-6xl mx-auto">
+      <div className="max-w-7xl mx-auto">
         <div className="text-center mb-16">
           <h2 className="text-4xl md:text-5xl font-bold mb-4">
             Everything you need for{" "}
@@ -38,27 +133,36 @@ export function Features() {
             Comprehensive tools to prevent workplace injuries and maintain peak productivity
           </p>
         </div>
-        
-        <div className="grid md:grid-cols-2 gap-8">
-          {features.map((feature, index) => (
-            <div 
-              key={index}
-              className="group relative p-8 rounded-3xl glass border border-border/50 float-card overflow-hidden"
+
+        <div className="my-16 overflow-visible">
+          <div
+            className="relative"
+            onMouseEnter={() => setIsHovering(true)}
+            onMouseLeave={() => setIsHovering(false)}
+          >
+            <div
+              ref={beltRef}
+              className="flex gap-8 will-change-transform"
+              style={{ transform: `translateX(${offset}px)` }}
             >
-              <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-accent/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-              <div className="relative z-10">
-                <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300">
-                  <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center">
-                    <feature.icon className="h-6 w-6 text-primary-foreground" />
+              {repeatedFeatures.map((feature, index) => (
+                <div
+                  key={`${feature.title}-${index}`}
+                  className="w-[22rem] h-72 flex-shrink-0 rounded-[3rem] border border-white/20 dark:border-white/10 shadow-lg bg-white/80 dark:bg-[#292a2c]/80 backdrop-blur-md transition-all duration-500 hover:scale-[1.02] hover:shadow-[0_25px_60px_rgba(255,93,174,0.25)] flex flex-col items-center justify-center text-center px-10"
+                >
+                  <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-2xl text-[#ff5dae]">
+                    <feature.icon className="h-8 w-8" />
                   </div>
+                  <h3 className="text-2xl font-semibold mb-3 text-gray-800 dark:text-gray-200">
+                    {feature.title}
+                  </h3>
+                  <p className="text-base leading-relaxed text-gray-600 dark:text-gray-300">
+                    {feature.description}
+                  </p>
                 </div>
-                <h3 className="text-2xl font-semibold mb-3 text-foreground">{feature.title}</h3>
-                <p className="text-base leading-relaxed text-muted-foreground">
-                  {feature.description}
-                </p>
-              </div>
+              ))}
             </div>
-          ))}
+          </div>
         </div>
       </div>
     </section>
