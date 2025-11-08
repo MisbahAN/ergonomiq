@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -7,28 +7,53 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Camera, Mail, Bell, CheckCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useAuthStore } from "@/hooks/useAuthStore";
+import { authService } from "@/lib/authService";
 
 export default function Profile() {
   const { toast } = useToast();
-  
+  const { user } = useAuthStore();
+
   // Profile state
-  const [fullName, setFullName] = useState("Misbah Ahmed");
-  const [occupation, setOccupation] = useState("Software Engineer");
+  const [fullName, setFullName] = useState(user?.displayName || "");
+  const [email, setEmail] = useState(user?.email || "");
+  const [occupation, setOccupation] = useState("");
   const [ergonomicGoal, setErgonomicGoal] = useState("both");
   const [age, setAge] = useState("");
   const [gender, setGender] = useState("");
 
   // Notification state
   const [emailAlertsEnabled, setEmailAlertsEnabled] = useState(true);
-  const [email, setEmail] = useState("misbah@posturely.com");
   const [notificationFrequency, setNotificationFrequency] = useState("2hours");
 
-  const handleSaveProfile = () => {
-    toast({
-      title: "Profile updated successfully!",
-      description: "Your profile settings have been saved.",
-      duration: 3000,
-    });
+  // Initialize user data when component mounts
+  useEffect(() => {
+    if (user) {
+      setFullName(user.displayName || "");
+      setEmail(user.email || "");
+    }
+  }, [user]);
+
+  const handleSaveProfile = async () => {
+    try {
+      // Update user profile in Firebase
+      if (user) {
+        await authService.updateProfile({ displayName: fullName });
+      }
+      
+      toast({
+        title: "Profile updated successfully!",
+        description: "Your profile settings have been saved.",
+        duration: 3000,
+      });
+    } catch (error) {
+      toast({
+        title: "Error updating profile",
+        description: "There was an issue saving your profile.",
+        variant: "destructive",
+        duration: 3000,
+      });
+    }
   };
 
   const handleSaveEmail = () => {
@@ -106,6 +131,20 @@ export default function Profile() {
                   onChange={(e) => setFullName(e.target.value)}
                   className="glass-strong border-border/50 focus:border-primary"
                   placeholder="Enter your full name"
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="email" className="text-sm font-medium mb-2 block">
+                  Email
+                </Label>
+                <Input
+                  id="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="glass-strong border-border/50 focus:border-primary"
+                  placeholder="Enter your email"
+                  disabled // Can't edit email directly here in Firebase
                 />
               </div>
 
@@ -265,7 +304,7 @@ export default function Profile() {
                 <span className="text-primary">⏰</span>
                 Notification Frequency
               </h3>
-              
+
               <RadioGroup value={notificationFrequency} onValueChange={setNotificationFrequency}>
                 <div className="space-y-3">
                   <div className="flex items-center space-x-3 p-3 rounded-lg glass-strong border border-border/50 hover:border-primary/50 transition-colors">
@@ -275,7 +314,7 @@ export default function Profile() {
                       <p className="text-xs text-muted-foreground">Frequent check-ins</p>
                     </Label>
                   </div>
-                  
+
                   <div className="flex items-center space-x-3 p-3 rounded-lg glass-strong border border-border/50 hover:border-primary/50 transition-colors">
                     <RadioGroupItem value="2hours" id="2hours" />
                     <Label htmlFor="2hours" className="cursor-pointer flex-1">
@@ -283,7 +322,7 @@ export default function Profile() {
                       <p className="text-xs text-muted-foreground">Balanced reminders</p>
                     </Label>
                   </div>
-                  
+
                   <div className="flex items-center space-x-3 p-3 rounded-lg glass-strong border border-border/50 hover:border-primary/50 transition-colors">
                     <RadioGroupItem value="daily" id="daily" />
                     <Label htmlFor="daily" className="cursor-pointer flex-1">
