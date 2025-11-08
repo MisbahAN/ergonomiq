@@ -51,7 +51,7 @@ export const authService = {
 
       // Update the user's display name
       if (credentials.name) {
-        await userCredential.user.updateProfile({
+        await updateProfile(userCredential.user, {
           displayName: credentials.name,
         });
       }
