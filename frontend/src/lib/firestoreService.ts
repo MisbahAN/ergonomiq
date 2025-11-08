@@ -20,6 +20,14 @@ import {
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 
+export interface IUserSettings {
+  notificationFrequency?: number;
+  emailAlerts?: boolean;
+  alertEmail?: string;
+  updatedAt?: Date;
+  [key: string]: any;
+}
+
 export interface IUserData {
   uid: string;
   email: string;
@@ -119,6 +127,43 @@ export const firestoreService = {
       }
     } catch (error) {
       console.error("Error updating user:", error);
+      throw error;
+    }
+  },
+
+  async getUserSettings(userId: string): Promise<IUserSettings | null> {
+    try {
+      const userDoc = await getDoc(doc(db, "users", userId));
+      if (userDoc.exists()) {
+        const data = userDoc.data();
+        return (data.settings as IUserSettings) || null;
+      }
+      return null;
+    } catch (error) {
+      console.error("Error getting user settings:", error);
+      throw error;
+    }
+  },
+
+  async updateUserSettings(userId: string, settings: IUserSettings): Promise<void> {
+    try {
+      const userRef = doc(db, "users", userId);
+      const updateData: Record<string, any> = {};
+
+      if (settings.notificationFrequency !== undefined) {
+        updateData["settings.notificationFrequency"] = settings.notificationFrequency;
+      }
+      if (settings.emailAlerts !== undefined) {
+        updateData["settings.emailAlerts"] = settings.emailAlerts;
+      }
+      if (settings.alertEmail !== undefined) {
+        updateData["settings.alertEmail"] = settings.alertEmail;
+      }
+      updateData["settings.updatedAt"] = serverTimestamp();
+
+      await setDoc(userRef, updateData, { merge: true });
+    } catch (error) {
+      console.error("Error updating user settings:", error);
       throw error;
     }
   },
