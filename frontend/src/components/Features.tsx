@@ -15,45 +15,45 @@ const DUPLICATE_SETS = 10;
 const features = [
   {
     icon: Activity,
-    title: "Real-time Posture Detection",
+    title: "Neck calibration + drop % alerts",
     description:
-      "Advanced AI analyzes your sitting posture continuously, alerting you to slouching and misalignment before they cause problems.",
-  },
-  {
-    icon: Hand,
-    title: "Wrist Health Insights",
-    description:
-      "Monitor repetitive strain indicators and get personalized recommendations to prevent carpal tunnel and other RSI conditions.",
+      "30-frame baseline mirrors our Python CV model, then calls out neck drop, head tilt, and uneven shoulders live.",
   },
   {
     icon: Eye,
-    title: "Eye Stress Tracking",
+    title: "Blink + EAR monitoring",
     description:
-      "Calibrated vision checks watch for eye strain triggers and prompt you to follow the 20-20-20 rule before fatigue sets in.",
+      "MediaPipe face mesh computes Eye Aspect Ratio, blinks/min, and 20-20-20 reminders without sending video to servers.",
+  },
+  {
+    icon: Hand,
+    title: "RSI wristband prototype",
+    description:
+      "BioAmp EXG Pill samples wrist muscle strain and triggers a local haptic puck today — wireless wristband coming soon.",
   },
   {
     icon: Lightbulb,
-    title: "Personalized Ergonomic Tips",
+    title: "Local-first deployment",
     description:
-      "Receive custom advice based on your unique work habits, desk setup, and posture data throughout the day.",
+      "Everything runs in-browser, so you can ship on Vercel with zero backend services or GPU hosting.",
   },
   {
     icon: RefreshCw,
-    title: "Guided Micro-breaks",
+    title: "Break automation",
     description:
-      "Dynamic routines cue gentle stretches, hydration reminders, and mindful breathing so you keep moving without leaving flow.",
+      "Session timers and strain heuristics schedule micro-breaks, stretches, and hydration nudges before fatigue settles in.",
   },
   {
     icon: BarChart3,
-    title: "Analytics Dashboard",
+    title: "Actionable analytics",
     description:
-      "Track your progress over time with detailed metrics, trends, and insights to improve your workspace health.",
+      "Unified dashboard surfaces posture quality, blink consistency, and (soon) RSI telemetry with trend lines.",
   },
   {
     icon: Sparkles,
-    title: "Ambient Focus Lighting",
+    title: "Ergonomic coaching",
     description:
-      "Light-level sensing balances ambient glow and screen brightness to keep circadian rhythms stable throughout the day.",
+      "Context-aware tips translate sensor readings into human advice — monitor height, seating tweaks, lighting, and more.",
   },
 ];
 
