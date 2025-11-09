@@ -540,7 +540,7 @@ export function usePostureVision() {
         ctx.fillText(`Calibrating ${Math.round(metrics.calibrationProgress * 30)}/30`, 20, 60);
       }
 
-      // Draw status and metrics (like HTML)
+      // // Draw status and metrics (like HTML)
       let yOffset = 120;
       if (metrics.calibrated) {
         const statusColor = metrics.level === 'alert' ? '#FF0000' : '#00FF00';
@@ -548,43 +548,43 @@ export function usePostureVision() {
         ctx.font = 'bold 50px Arial';
         ctx.fillText(metrics.status, 20, yOffset);
 
-        ctx.fillStyle = '#FFFFFF';
-        ctx.font = '35px Arial';
-        yOffset += 50;
-        ctx.fillText(`Neck drop: ${metrics.neckDropPercent.toFixed(1)}%`, 20, yOffset);
-        yOffset += 40;
-        ctx.fillText(`Head tilt: ${metrics.headTiltDeg.toFixed(1)}°`, 20, yOffset);
-        yOffset += 40;
-        ctx.fillText(`Side tilt: ${metrics.shoulderTiltDeg.toFixed(1)}°`, 20, yOffset);
-        yOffset += 40;
-      }
+      //   ctx.fillStyle = '#FFFFFF';
+      //   ctx.font = '35px Arial';
+      //   yOffset += 50;
+      //   ctx.fillText(`Neck drop: ${metrics.neckDropPercent.toFixed(1)}%`, 20, yOffset);
+      //   yOffset += 40;
+      //   ctx.fillText(`Head tilt: ${metrics.headTiltDeg.toFixed(1)}°`, 20, yOffset);
+      //   yOffset += 40;
+      //   ctx.fillText(`Side tilt: ${metrics.shoulderTiltDeg.toFixed(1)}°`, 20, yOffset);
+      //   yOffset += 40;
+      // }
 
-      // Draw eye strain warnings (blue text like HTML)
-      if (eyes.warnings.length > 0) {
-        ctx.fillStyle = 'rgba(0, 165, 255, 1)';
-        ctx.font = '28px Arial';
-        eyes.warnings.forEach(warning => {
-          ctx.fillText(warning, 20, yOffset);
-          yOffset += 35;
-        });
-      }
+      // // Draw eye strain warnings (blue text like HTML)
+      // if (eyes.warnings.length > 0) {
+      //   ctx.fillStyle = 'rgba(0, 165, 255, 1)';
+      //   ctx.font = '28px Arial';
+      //   eyes.warnings.forEach(warning => {
+      //     ctx.fillText(warning, 20, yOffset);
+      //     yOffset += 35;
+      //   });
+      // }
 
-      // Draw eye metrics
-      if (metrics.calibrated) {
-        ctx.fillStyle = '#FFFFFF';
-        ctx.font = '28px Arial';
-        if (eyes.ear !== null) {
-          ctx.fillText(`EAR: ${eyes.ear.toFixed(2)}`, 20, yOffset);
-          yOffset += 35;
-        }
+      // // Draw eye metrics
+      // if (metrics.calibrated) {
+      //   ctx.fillStyle = '#FFFFFF';
+      //   ctx.font = '28px Arial';
+      //   if (eyes.ear !== null) {
+      //     ctx.fillText(`EAR: ${eyes.ear.toFixed(2)}`, 20, yOffset);
+      //     yOffset += 35;
+      //   }
         
-        const sessionTime = Math.floor(eyes.sessionSeconds);
-        const minutes = Math.floor(sessionTime / 60);
-        const seconds = sessionTime % 60;
-        ctx.fillText(`Session: ${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`, 20, yOffset);
-        yOffset += 35;
+      //   const sessionTime = Math.floor(eyes.sessionSeconds);
+      //   const minutes = Math.floor(sessionTime / 60);
+      //   const seconds = sessionTime % 60;
+      //   ctx.fillText(`Session: ${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`, 20, yOffset);
+      //   yOffset += 35;
         
-        ctx.fillText(`Blinks: ${eyes.totalBlinks}`, 20, yOffset);
+      //   ctx.fillText(`Blinks: ${eyes.totalBlinks}`, 20, yOffset);
       }
 
       ctx.restore();
