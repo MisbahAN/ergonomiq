@@ -310,17 +310,18 @@ export default function PostureMonitor() {
             <div className="glass rounded-3xl p-6">
               <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
                 <Zap className="h-4 w-4 text-primary" />
-                Live Insights
+                Live Diagnostics
               </h3>
-              <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-hide">
-                {postureInsights.map((tip, idx) => (
-                  <div
-                    key={`${tip}-${idx}`}
-                    className="glass-strong rounded-2xl px-5 py-4 min-w-[240px] border border-primary/10 text-sm text-foreground/80"
-                  >
-                    {tip}
-                  </div>
-                ))}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {diagnostics
+                  .filter(diagnostic => 
+                    diagnostic.title.toLowerCase().includes('neck') || 
+                    diagnostic.title.toLowerCase().includes('head') || 
+                    diagnostic.title.toLowerCase().includes('shoulder')
+                  )
+                  .map((diagnostic) => (
+                    <DiagnosticCard key={diagnostic.title} {...diagnostic} />
+                  ))}
               </div>
             </div>
           </div>
@@ -410,9 +411,9 @@ export default function PostureMonitor() {
         <div className="glass rounded-3xl p-6 float-card">
           <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
             <div>
-              <h2 className="text-xl font-semibold">Live diagnostics</h2>
+              <h2 className="text-xl font-semibold">Extended diagnostics</h2>
               <p className="text-xs text-muted-foreground">
-                Real-time posture + eye metrics compared to healthy ranges.
+                Additional posture + eye metrics compared to healthy ranges.
               </p>
             </div>
             <div className="text-right text-xs text-muted-foreground">
@@ -422,9 +423,15 @@ export default function PostureMonitor() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-            {diagnostics.map((item) => (
-              <DiagnosticCard key={item.title} {...item} />
-            ))}
+            {diagnostics
+              .filter(diagnostic => 
+                !diagnostic.title.toLowerCase().includes('neck') && 
+                !diagnostic.title.toLowerCase().includes('head') && 
+                !diagnostic.title.toLowerCase().includes('shoulder')
+              )
+              .map((item) => (
+                <DiagnosticCard key={item.title} {...item} />
+              ))}
           </div>
         </div>
 
@@ -623,6 +630,15 @@ function buildDiagnostics(
         "Balanced alignment",
     },
     {
+      title: "Shoulder tilt",
+      value: formatDegrees(shoulderTilt),
+      helper: "Alert above 8°",
+      status: getSeverity(shoulderTilt, { warn: 4, alert: 8 }),
+      progress: Math.min(100, (shoulderTilt / 8) * 100 || 0),
+      detail: postureMetrics.alerts.find((a) => a.toLowerCase().includes("shoulder")) ??
+        "Even shoulder alignment",
+    },
+    {
       title: "Blink average",
       value: `${blinkAvg.toFixed(1)} / min`,
       helper: "Healthy ≥ 10 blinks/min",
@@ -631,17 +647,6 @@ function buildDiagnostics(
       detail:
         eyeMetrics.warnings[0] ??
         (blinkAvg < 10 ? "Take a 20-20-20 break" : "Comfortable blink cadence"),
-    },
-    {
-      title: "Session timer",
-      value: formatDuration(sessionSeconds),
-      helper: "Break every 20 min",
-      status: sessionSeconds >= 1200 ? "alert" : sessionSeconds >= 900 ? "warn" : "ok",
-      progress: Math.min(100, (sessionSeconds / 1200) * 100 || 0),
-      detail:
-        sessionSeconds >= 1200
-          ? "Time to stand and reset"
-          : `${Math.max(0, 20 - Math.floor(sessionSeconds / 60))} min until break`,
     },
   ];
 }
