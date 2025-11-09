@@ -53,6 +53,7 @@ const UPDATE_THROTTLE_MS = 250;
 const NECK_DROP_LIMIT = 0.1;
 const SIDE_TILT_THRESHOLD = 5;
 const HEAD_TILT_THRESHOLD = 8;
+const ALERT_COOLDOWN = 5000;
 
 type Baseline = {
   shoulderAngle: number;
@@ -128,6 +129,8 @@ export function usePostureVision() {
   const poseLandmarkerRef = useRef<PoseLandmarker | null>(null);
   const faceLandmarkerRef = useRef<FaceLandmarker | null>(null);
   const animationRef = useRef<number | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const lastAlertRef = useRef(0);
 
   const calibrationRef = useRef<CalibrationState>(createCalibrationState());
   const postureMetricsRef = useRef<NeckPostureMetrics>(initialPosture);
@@ -149,6 +152,31 @@ export function usePostureVision() {
   const [isModelLoading, setIsModelLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const playAlertSound = useCallback(() => {
+    try {
+      if (!audioContextRef.current) {
+        audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+      }
+      const ctx = audioContextRef.current;
+      const oscillator = ctx.createOscillator();
+      const gainNode = ctx.createGain();
+      
+      oscillator.connect(gainNode);
+      gainNode.connect(ctx.destination);
+      
+      oscillator.frequency.value = 800;
+      oscillator.type = 'sine';
+      
+      gainNode.gain.setValueAtTime(0.3, ctx.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
+      
+      oscillator.start(ctx.currentTime);
+      oscillator.stop(ctx.currentTime + 0.5);
+    } catch (err) {
+      console.error('Audio error:', err);
+    }
+  }, []);
+
   const emitMetrics = useCallback(() => {
     const now = performance.now();
     if (now - lastEmitRef.current < UPDATE_THROTTLE_MS) return;
@@ -164,6 +192,7 @@ export function usePostureVision() {
     eyeMetricsRef.current = initialEye;
     eyeProcessingRef.current = createEyeProcessingState();
     lastEmitRef.current = 0;
+    lastAlertRef.current = 0;
     setPostureMetrics(initialPosture);
     setEyeMetrics(initialEye);
   }, []);
@@ -265,178 +294,144 @@ export function usePostureVision() {
 
       ctx.clearRect(0, 0, width, height);
       ctx.save();
-      ctx.scale(-1, 1);
-      ctx.translate(-width, 0);
 
-      const connections: [number, number][] = [
-        [11, 12],
-        [11, 23],
-        [12, 24],
-        [23, 24],
-        [11, 13],
-        [13, 15],
-        [12, 14],
-        [14, 16],
-      ];
+      // Draw video first
+      ctx.drawImage(video, 0, 0, width, height);
 
-      result.landmarks?.forEach((landmarkList) => {
-        connections.forEach(([startIdx, endIdx]) => {
-          const start = landmarkList[startIdx];
-          const end = landmarkList[endIdx];
-          if (
-            !start ||
-            !end ||
-            (start.visibility ?? 0) < 0.4 ||
-            (end.visibility ?? 0) < 0.4
-          ) {
-            return;
-          }
-          ctx.beginPath();
-          ctx.moveTo(start.x * width, start.y * height);
-          ctx.lineTo(end.x * width, end.y * height);
-          ctx.strokeStyle = "#22c55e";
-          ctx.lineWidth = 3;
-          ctx.stroke();
-        });
+      const metrics = postureMetricsRef.current;
+      const eyes = eyeMetricsRef.current;
 
-        const leftShoulder = landmarkList[POSE_LANDMARKS.LEFT_SHOULDER];
-        const rightShoulder = landmarkList[POSE_LANDMARKS.RIGHT_SHOULDER];
-        const leftEar = landmarkList[POSE_LANDMARKS.LEFT_EAR];
-        const rightEar = landmarkList[POSE_LANDMARKS.RIGHT_EAR];
-        const leftEye = landmarkList[POSE_LANDMARKS.LEFT_EYE];
-        const rightEye = landmarkList[POSE_LANDMARKS.RIGHT_EYE];
-
-        if (
-          leftShoulder &&
-          rightShoulder &&
-          leftEar &&
-          rightEar &&
-          leftEye &&
-          rightEye
-        ) {
-          const shoulderMid = {
-            x: (leftShoulder.x + rightShoulder.x) / 2,
-            y: (leftShoulder.y + rightShoulder.y) / 2,
-          };
-          const headMid = {
-            x: (leftEye.x + rightEye.x) / 2,
-            y: (leftEye.y + rightEye.y) / 2,
-          };
-
-          ctx.strokeStyle = "#2563eb";
-          ctx.lineWidth = 3;
-          ctx.beginPath();
-          ctx.moveTo(shoulderMid.x * width, 0);
-          ctx.lineTo(shoulderMid.x * width, height);
-          ctx.stroke();
-
-          ctx.strokeStyle = "#22c55e";
-          ctx.beginPath();
-          ctx.moveTo(leftShoulder.x * width, leftShoulder.y * height);
-          ctx.lineTo(rightShoulder.x * width, rightShoulder.y * height);
-          ctx.stroke();
-
-          ctx.strokeStyle = "#facc15";
-          ctx.beginPath();
-          ctx.moveTo(shoulderMid.x * width, shoulderMid.y * height);
-          ctx.lineTo(headMid.x * width, headMid.y * height);
-          ctx.stroke();
-        }
-      });
-
+      // Process eye strain
+      let strainWarnings: string[] = [];
       if (facePoints) {
-        ctx.strokeStyle = "#f97316";
-        ctx.fillStyle = "#fb923c";
-        FACE_EYE_INDICES.LEFT.concat(FACE_EYE_INDICES.RIGHT).forEach((idx) => {
-          const lm = facePoints[idx];
-          if (!lm) return;
+        const leftEye = FACE_EYE_INDICES.LEFT.map(idx => [
+          facePoints[idx].x * width,
+          facePoints[idx].y * height
+        ]);
+        const rightEye = FACE_EYE_INDICES.RIGHT.map(idx => [
+          facePoints[idx].x * width,
+          facePoints[idx].y * height
+        ]);
+
+        // Draw eye landmarks (cyan dots like HTML)
+        ctx.fillStyle = 'rgba(0, 255, 255, 0.8)';
+        [...leftEye, ...rightEye].forEach(point => {
           ctx.beginPath();
-          ctx.arc(lm.x * width, lm.y * height, 2.5, 0, Math.PI * 2);
+          ctx.arc(point[0], point[1], 2, 0, 2 * Math.PI);
           ctx.fill();
         });
       }
 
-      ctx.restore();
+      // Draw pose if available
+      if (result.landmarks && result.landmarks.length > 0) {
+        const landmarks = result.landmarks[0];
+        
+        // Draw connections (green like HTML)
+        const connections: [number, number][] = [
+          [11, 12], [11, 13], [13, 15], [12, 14], [14, 16],
+          [11, 23], [12, 24]
+        ];
 
-      const metrics = postureMetricsRef.current;
-      const eyes = eyeMetricsRef.current;
-      ctx.save();
-      ctx.textBaseline = "top";
-      if (metrics.level === "alert") {
-        ctx.fillStyle = "rgba(255,0,0,0.6)";
-        ctx.fillRect(0, 0, width, 80);
-        ctx.fillStyle = "#ffffff";
-        ctx.font = "28px sans-serif";
-        ctx.fillText("STRAIGHTEN UP!", 40, 20);
-        ctx.font = "16px sans-serif";
-        metrics.alerts.slice(0, 2).forEach((alert, idx) => {
-          ctx.fillText(`• ${alert}`, 40, 50 + idx * 18);
+        connections.forEach(([startIdx, endIdx]) => {
+          const start = landmarks[startIdx];
+          const end = landmarks[endIdx];
+          if (start && end && (start.visibility ?? 0) > 0.4 && (end.visibility ?? 0) > 0.4) {
+            ctx.beginPath();
+            ctx.moveTo(start.x * width, start.y * height);
+            ctx.lineTo(end.x * width, end.y * height);
+            ctx.strokeStyle = '#00FF00';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+          }
         });
-      } else {
-        ctx.fillStyle = "rgba(0,0,0,0.45)";
-        ctx.fillRect(0, 0, width, 110);
-        ctx.fillStyle = "#ffffff";
-        ctx.font = "20px 'Inter', sans-serif";
-        ctx.fillText(metrics.status, 20, 20);
-        ctx.font = "14px 'Inter', sans-serif";
-        ctx.fillStyle = "#d1d5db";
-        ctx.fillText(
-          `Neck drop: ${metrics.neckDropPercent.toFixed(1)}%`,
-          20,
-          55
-        );
-        ctx.fillText(`Head tilt: ${metrics.headTiltDeg.toFixed(1)}°`, 20, 75);
-        ctx.fillText(
-          `Shoulder tilt: ${metrics.shoulderTiltDeg.toFixed(1)}°`,
-          220,
-          75
-        );
+
+        // Draw landmarks (red dots like HTML)
+        landmarks.forEach(landmark => {
+          if ((landmark.visibility ?? 0) > 0.4) {
+            ctx.beginPath();
+            ctx.arc(landmark.x * width, landmark.y * height, 3, 0, 2 * Math.PI);
+            ctx.fillStyle = '#FF0000';
+            ctx.fill();
+          }
+        });
+
+        // Draw center line (red vertical line)
+        ctx.strokeStyle = 'rgba(255, 0, 0, 0.7)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(width / 2, 0);
+        ctx.lineTo(width / 2, height);
+        ctx.stroke();
+
+        // Draw shoulder line (green)
+        const leftShoulder = landmarks[11];
+        const rightShoulder = landmarks[12];
+        if (leftShoulder && rightShoulder) {
+          ctx.strokeStyle = 'rgba(0, 255, 0, 0.8)';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(leftShoulder.x * width, leftShoulder.y * height);
+          ctx.lineTo(rightShoulder.x * width, rightShoulder.y * height);
+          ctx.stroke();
+        }
       }
 
-      ctx.fillStyle = "rgba(0,0,0,0.45)";
-      ctx.fillRect(width - 230, 0, 230, 120 + eyes.warnings.length * 18);
-      ctx.fillStyle = "#ffffff";
-      ctx.font = "16px 'Inter', sans-serif";
-      ctx.fillText(
-        eyes.ear ? `EAR: ${eyes.ear.toFixed(2)}` : "EAR: -",
-        width - 210,
-        15
-      );
-      ctx.font = "14px 'Inter', sans-serif";
-      ctx.fillStyle = "#e2e8f0";
-      ctx.fillText(
-        `Blinks/min: ${eyes.recentBlinkAverage.toFixed(1)}`,
-        width - 210,
-        40
-      );
-      ctx.fillText(
-        `Session: ${formatDuration(eyes.sessionSeconds)}`,
-        width - 210,
-        60
-      );
+      // Draw calibration progress bar at bottom (like HTML)
+      if (!metrics.calibrated && metrics.calibrationProgress > 0) {
+        const progress = metrics.calibrationProgress * width;
+        ctx.fillStyle = 'rgba(0, 255, 255, 0.7)';
+        ctx.fillRect(0, height - 20, progress, 20);
+        
+        ctx.fillStyle = 'rgba(0, 255, 255, 1)';
+        ctx.font = 'bold 40px Arial';
+        ctx.fillText(`Calibrating ${Math.round(metrics.calibrationProgress * 30)}/30`, 20, 60);
+      }
 
-      if (eyes.warnings.length) {
-        ctx.fillStyle = "#fbbf24";
-        ctx.font = "13px 'Inter', sans-serif";
-        eyes.warnings.forEach((warning, idx) => {
-          ctx.fillText(`• ${warning}`, width - 210, 85 + idx * 18);
+      // Draw status and metrics (like HTML)
+      let yOffset = 120;
+      if (metrics.calibrated) {
+        const statusColor = metrics.level === 'alert' ? '#FF0000' : '#00FF00';
+        ctx.fillStyle = statusColor;
+        ctx.font = 'bold 50px Arial';
+        ctx.fillText(metrics.status, 20, yOffset);
+
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = '35px Arial';
+        yOffset += 50;
+        ctx.fillText(`Neck drop: ${metrics.neckDropPercent.toFixed(1)}%`, 20, yOffset);
+        yOffset += 40;
+        ctx.fillText(`Head tilt: ${metrics.headTiltDeg.toFixed(1)}°`, 20, yOffset);
+        yOffset += 40;
+        ctx.fillText(`Side tilt: ${metrics.shoulderTiltDeg.toFixed(1)}°`, 20, yOffset);
+        yOffset += 40;
+      }
+
+      // Draw eye strain warnings (blue text like HTML)
+      if (eyes.warnings.length > 0) {
+        ctx.fillStyle = 'rgba(0, 165, 255, 1)';
+        ctx.font = '28px Arial';
+        eyes.warnings.forEach(warning => {
+          ctx.fillText(warning, 20, yOffset);
+          yOffset += 35;
         });
       }
 
-      if (!metrics.calibrated) {
-        ctx.fillStyle = "rgba(0,0,0,0.4)";
-        ctx.fillRect(0, height - 24, width, 24);
-        ctx.fillStyle = "#0ea5e9";
-        ctx.fillRect(0, height - 24, width * metrics.calibrationProgress, 24);
-        ctx.fillStyle = "#fff";
-        ctx.font = "14px sans-serif";
-        ctx.fillText(
-          `Calibrating... ${Math.round(
-            metrics.calibrationProgress * 30
-          )}/30 frames`,
-          20,
-          height - 22
-        );
+      // Draw eye metrics
+      if (metrics.calibrated) {
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = '28px Arial';
+        if (eyes.ear !== null) {
+          ctx.fillText(`EAR: ${eyes.ear.toFixed(2)}`, 20, yOffset);
+          yOffset += 35;
+        }
+        
+        const sessionTime = Math.floor(eyes.sessionSeconds);
+        const minutes = Math.floor(sessionTime / 60);
+        const seconds = sessionTime % 60;
+        ctx.fillText(`Session: ${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`, 20, yOffset);
+        yOffset += 35;
+        
+        ctx.fillText(`Blinks: ${eyes.totalBlinks}`, 20, yOffset);
       }
 
       ctx.restore();
@@ -566,6 +561,7 @@ export function usePostureVision() {
             calibrationProgress: 1,
             alerts: ["Live monitoring enabled"],
           };
+          console.log('Calibration complete!');
         }
         emitMetrics();
         return;
@@ -598,6 +594,16 @@ export function usePostureVision() {
       const status = hasAlerts ? "POOR POSTURE" : "Good Posture";
       const level: PostureLevel = hasAlerts ? "alert" : "ok";
 
+      // Play alert sound if poor posture detected
+      if (hasAlerts) {
+        const now = Date.now();
+        if (now - lastAlertRef.current > ALERT_COOLDOWN) {
+          console.log('Poor posture detected! Sit upright.');
+          playAlertSound();
+          lastAlertRef.current = now;
+        }
+      }
+
       postureMetricsRef.current = {
         calibrated: true,
         calibrationProgress: 1,
@@ -612,7 +618,7 @@ export function usePostureVision() {
       };
       emitMetrics();
     },
-    [emitMetrics]
+    [emitMetrics, playAlertSound]
   );
 
   const updateEyeState = useCallback(
