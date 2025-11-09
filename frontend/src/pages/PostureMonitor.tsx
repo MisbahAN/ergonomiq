@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import type { LucideIcon } from "lucide-react";
 import {
@@ -18,29 +18,17 @@ import { firestoreService } from "@/lib/firestoreService";
 import { useAuthStore } from "@/hooks/useAuthStore";
 import { useToast } from "@/hooks/use-toast";
 import {
-  Area,
-  AreaChart,
-  CartesianGrid,
+  LineChart,
   Line,
-  ResponsiveContainer,
-  Tooltip,
   XAxis,
   YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
 } from "recharts";
 
 const formatPercent = (value: number) => `${value.toFixed(1)}%`;
 const formatDegrees = (value: number) => `${value.toFixed(1)}°`;
-
-const postureTrendData = [
-  { time: "09:00", postureScore: 94, blinkRate: 19 },
-  { time: "09:10", postureScore: 88, blinkRate: 16 },
-  { time: "09:20", postureScore: 82, blinkRate: 14 },
-  { time: "09:30", postureScore: 78, blinkRate: 12 },
-  { time: "09:40", postureScore: 86, blinkRate: 15 },
-  { time: "09:50", postureScore: 91, blinkRate: 17 },
-  { time: "10:00", postureScore: 89, blinkRate: 18 },
-  { time: "10:10", postureScore: 84, blinkRate: 13 },
-];
 
 export default function PostureMonitor() {
   const {
@@ -61,6 +49,8 @@ export default function PostureMonitor() {
   const { toast } = useToast();
   const [isSyncingSession, setIsSyncingSession] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
+  const [trendData, setTrendData] = useState<TrendPoint[]>([]);
+  const lastTrendSampleRef = useRef(0);
 
   useEffect(() => {
     if (!sessionPayload) return;
@@ -164,6 +154,31 @@ export default function PostureMonitor() {
   const calibrationPercent = Math.round(
     postureMetrics.calibrationProgress * 100
   );
+
+  useEffect(() => {
+    if (!sessionState.active || !postureMetrics.calibrated) return;
+    const now = Date.now();
+    if (now - lastTrendSampleRef.current < 1000) return;
+    lastTrendSampleRef.current = now;
+
+    const neckQuality = Math.max(0, 100 - Math.max(0, postureMetrics.neckDropPercent));
+    const blinkRate = eyeMetrics.recentBlinkAverage;
+    const timeLabel = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+
+    setTrendData((prev) => {
+      const next = [...prev, {
+        time: timeLabel,
+        postureQuality: Number(neckQuality.toFixed(1)),
+        blinkRate: Number(blinkRate.toFixed(1)),
+      }];
+      return next.slice(-90);
+    });
+  }, [sessionState.active, postureMetrics, eyeMetrics]);
+
+  const diagnostics = useMemo(() => buildDiagnostics(postureMetrics, eyeMetrics), [
+    postureMetrics,
+    eyeMetrics,
+  ]);
 
   return (
     <div className="min-h-screen pb-16">
@@ -395,85 +410,80 @@ export default function PostureMonitor() {
         <div className="glass rounded-3xl p-6 float-card">
           <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
             <div>
-              <h2 className="text-xl font-semibold">Posture &amp; Eye Trend</h2>
+              <h2 className="text-xl font-semibold">Live diagnostics</h2>
               <p className="text-xs text-muted-foreground">
-                Rolling 70-minute view of posture quality (%) and blink rate (per min).
+                Real-time posture + eye metrics compared to healthy ranges.
               </p>
             </div>
             <div className="text-right text-xs text-muted-foreground">
               <p>Data source: local CV session</p>
-              <p>Updates every 10 minutes</p>
+              <p>Updates every 250ms</p>
             </div>
           </div>
-          <div className="h-80">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={postureTrendData}>
-                <defs>
-                  <linearGradient id="postureGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.35} />
-                    <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
-                <XAxis
-                  dataKey="time"
-                  stroke="hsl(var(--muted-foreground))"
-                  style={{ fontSize: "12px" }}
-                  axisLine={false}
-                  tickLine={false}
-                />
-                <YAxis
-                  stroke="hsl(var(--muted-foreground))"
-                  style={{ fontSize: "12px" }}
-                  axisLine={false}
-                  tickLine={false}
-                  domain={[60, 100]}
-                  label={{
-                    value: "Posture Quality (%)",
-                    angle: -90,
-                    position: "insideLeft",
-                    style: { fontSize: "12px" },
-                  }}
-                />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: "hsl(var(--background))",
-                    border: "1px solid hsl(var(--border))",
-                    borderRadius: "12px",
-                    fontSize: "12px",
-                  }}
-                />
-                <Area
-                  type="monotone"
-                  dataKey="postureScore"
-                  stroke="hsl(var(--primary))"
-                  strokeWidth={3}
-                  fill="url(#postureGradient)"
-                  name="Posture Quality"
-                />
-                <Line
-                  type="monotone"
-                  dataKey="blinkRate"
-                  stroke="hsl(var(--accent))"
-                  strokeWidth={2}
-                  dot={{ r: 3, fill: "hsl(var(--background))" }}
-                  name="Blink Rate"
-                />
-              </AreaChart>
-            </ResponsiveContainer>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+            {diagnostics.map((item) => (
+              <DiagnosticCard key={item.title} {...item} />
+            ))}
           </div>
-          <div className="flex flex-wrap gap-6 mt-4 text-xs text-muted-foreground">
-            <div className="flex items-center gap-2">
-              <span className="h-3 w-3 rounded-full bg-primary" />
-              <span>Posture quality</span>
+        </div>
+
+        <div className="glass rounded-3xl p-6">
+          <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+            <div>
+              <h2 className="text-xl font-semibold">Session trend</h2>
+              <p className="text-xs text-muted-foreground">
+                Recent posture quality vs. blink cadence sampled every second.
+              </p>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="h-3 w-3 rounded-full bg-[hsl(var(--accent))]" />
-              <span>Blinks per minute</span>
+            <div className="text-xs text-muted-foreground flex items-center gap-4">
+              <span className="flex items-center gap-1">
+                <span className="h-2 w-2 rounded-full bg-emerald-500" /> Posture %
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="h-2 w-2 rounded-full bg-primary" /> Blinks/min
+              </span>
             </div>
-            <span className="ml-auto">
-              Healthy range: posture ≥85% · blink rate ≥15 / min
-            </span>
+          </div>
+          <div className="h-72">
+            {trendData.length ? (
+              <ResponsiveContainer>
+                <LineChart data={trendData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                  <XAxis dataKey="time" stroke="hsl(var(--muted-foreground))" tickLine={false} minTickGap={20} />
+                  <YAxis stroke="hsl(var(--muted-foreground))" tickLine={false} domain={[0, 120]} />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "hsl(var(--background))",
+                      border: "1px solid hsl(var(--border))",
+                      borderRadius: "12px",
+                      fontSize: "12px",
+                    }}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="postureQuality"
+                    stroke="#10b981"
+                    strokeWidth={3}
+                    dot={false}
+                    name="Posture quality"
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="blinkRate"
+                    stroke="hsl(var(--primary))"
+                    strokeWidth={2}
+                    strokeDasharray="5 5"
+                    dot={false}
+                    name="Blink rate"
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-full flex items-center justify-center text-sm text-muted-foreground border border-dashed border-border/60 rounded-2xl">
+                Start a session to see live trends.
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -566,4 +576,119 @@ function getSeverity(
   if (value >= thresholds.alert) return "alert";
   if (value >= thresholds.warn) return "warn";
   return "ok";
+}
+
+type TrendPoint = {
+  time: string;
+  postureQuality: number;
+  blinkRate: number;
+};
+
+type Diagnostic = {
+  title: string;
+  value: string;
+  helper: string;
+  status: "ok" | "warn" | "alert";
+  progress?: number;
+  detail?: string;
+};
+
+function buildDiagnostics(
+  postureMetrics: ReturnType<typeof usePostureVision>["postureMetrics"],
+  eyeMetrics: ReturnType<typeof usePostureVision>["eyeMetrics"]
+): Diagnostic[] {
+  const neckDrop = Math.max(0, postureMetrics.neckDropPercent);
+  const headTilt = Math.abs(postureMetrics.headTiltDeg);
+  const shoulderTilt = Math.abs(postureMetrics.shoulderTiltDeg);
+  const blinkAvg = eyeMetrics.recentBlinkAverage;
+  const sessionSeconds = eyeMetrics.sessionSeconds;
+
+  return [
+    {
+      title: "Neck drop",
+      value: formatPercent(neckDrop),
+      helper: "Target under 10%",
+      status: getSeverity(neckDrop, { warn: 8, alert: 12 }),
+      progress: Math.min(100, (neckDrop / 12) * 100 || 0),
+      detail: postureMetrics.alerts.find((a) => a.toLowerCase().includes("neck")) ??
+        "Aligned with baseline",
+    },
+    {
+      title: "Head tilt",
+      value: formatDegrees(headTilt),
+      helper: "Alert above 12°",
+      status: getSeverity(headTilt, { warn: 5, alert: 12 }),
+      progress: Math.min(100, (headTilt / 12) * 100 || 0),
+      detail: postureMetrics.alerts.find((a) => a.toLowerCase().includes("head")) ??
+        "Balanced alignment",
+    },
+    {
+      title: "Blink average",
+      value: `${blinkAvg.toFixed(1)} / min`,
+      helper: "Healthy ≥ 10 blinks/min",
+      status: blinkAvg < 8 ? "alert" : blinkAvg < 10 ? "warn" : "ok",
+      progress: Math.min(100, (blinkAvg / 15) * 100 || 0),
+      detail:
+        eyeMetrics.warnings[0] ??
+        (blinkAvg < 10 ? "Take a 20-20-20 break" : "Comfortable blink cadence"),
+    },
+    {
+      title: "Session timer",
+      value: formatDuration(sessionSeconds),
+      helper: "Break every 20 min",
+      status: sessionSeconds >= 1200 ? "alert" : sessionSeconds >= 900 ? "warn" : "ok",
+      progress: Math.min(100, (sessionSeconds / 1200) * 100 || 0),
+      detail:
+        sessionSeconds >= 1200
+          ? "Time to stand and reset"
+          : `${Math.max(0, 20 - Math.floor(sessionSeconds / 60))} min until break`,
+    },
+  ];
+}
+
+function DiagnosticCard({ title, value, helper, status, progress, detail }: Diagnostic) {
+  const color =
+    status === "alert"
+      ? "text-red-500"
+      : status === "warn"
+      ? "text-amber-500"
+      : "text-emerald-500";
+
+  return (
+    <div className="rounded-3xl border border-border/60 p-4 space-y-3">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-xs text-muted-foreground uppercase tracking-wide">{title}</p>
+          <p className={`text-2xl font-semibold ${color}`}>{value}</p>
+        </div>
+        <span
+          className={`text-xs font-semibold px-2 py-1 rounded-full ${
+            status === "alert"
+              ? "bg-red-500/10 text-red-500"
+              : status === "warn"
+              ? "bg-amber-500/10 text-amber-500"
+              : "bg-emerald-500/10 text-emerald-500"
+          }`}
+        >
+          {status === "alert" ? "ALERT" : status === "warn" ? "WARN" : "GOOD"}
+        </span>
+      </div>
+      <p className="text-xs text-muted-foreground">{helper}</p>
+      {progress !== undefined && (
+        <div className="h-2 rounded-full bg-muted">
+          <div
+            className={`h-full rounded-full ${
+              status === "alert"
+                ? "bg-red-500"
+                : status === "warn"
+                ? "bg-amber-500"
+                : "bg-emerald-500"
+            }`}
+            style={{ width: `${Math.max(0, Math.min(100, progress))}%` }}
+          />
+        </div>
+      )}
+      {detail && <p className="text-xs text-muted-foreground">{detail}</p>}
+    </div>
+  );
 }
