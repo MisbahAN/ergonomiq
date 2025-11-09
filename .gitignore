@@ -1,5 +1,5 @@
 # Virtual environments
-all_models_env/
+posture_env/
 
 # Python
 __pycache__/
