@@ -88,6 +88,7 @@ type EyeProcessingState = {
 export interface PostureSessionSnapshot {
   timestampStart: Date;
   timestampEnd: Date;
+  // String containing '0' for Good/Warn posture and '1' for Alert (bad) posture
   postureData: string;
   totalFrames: number;
   badFrames: number;
@@ -117,7 +118,7 @@ export interface SessionUploadPayload {
 
 type SessionBuffers = {
   posture: {
-    frames: ("0" | "1")[];
+    frames: ("0" | "1")[]; // 0 = Good/Warn posture, 1 = Alert (bad) posture
     badFrames: number;
     lastSampleTimestamp: number;
   };
@@ -452,6 +453,10 @@ export function usePostureVision() {
       ctx.clearRect(0, 0, width, height);
       ctx.save();
 
+      // Flip horizontally for mirror effect
+      ctx.translate(width, 0);
+      ctx.scale(-1, 1);
+      
       // Draw video first
       ctx.drawImage(video, 0, 0, width, height);
 
@@ -538,12 +543,16 @@ export function usePostureVision() {
         ctx.fillStyle = 'rgba(0, 255, 255, 0.7)';
         ctx.fillRect(0, height - 20, progress, 20);
         
+        ctx.save();
+        ctx.scale(-1, 1);
         ctx.fillStyle = 'rgba(0, 255, 255, 1)';
         ctx.font = 'bold 40px Arial';
-        ctx.fillText(`Calibrating ${Math.round(metrics.calibrationProgress * 30)}/30`, 20, 60);
+        ctx.fillText(`Calibrating ${Math.round(metrics.calibrationProgress * 30)}/30`, -width + 20, 60);
+        ctx.restore();
       }
 
       // // Draw status and metrics (like HTML)
+      // Draw status and metrics (like HTML)
       let yOffset = 120;
       if (metrics.calibrated) {
         let statusColor = '#00FF00'; // Default to green for OK
@@ -552,9 +561,12 @@ export function usePostureVision() {
         } else if (metrics.level === 'warn') {
           statusColor = '#FFA500'; // Orange for warning
         }
+        
+        ctx.save();
+        ctx.scale(-1, 1);
         ctx.fillStyle = statusColor;
         ctx.font = 'bold 50px Arial';
-        ctx.fillText(metrics.status, 20, yOffset);
+        ctx.fillText(metrics.status, -width + 20, yOffset);
 
       //   ctx.fillStyle = '#FFFFFF';
       //   ctx.font = '35px Arial';
@@ -827,7 +839,7 @@ export function usePostureVision() {
         sessionActiveRef.current &&
         now - postureBuffer.lastSampleTimestamp >= POSTURE_SAMPLE_INTERVAL_MS
       ) {
-        const isBad = hasAlerts ? 1 : 0;
+        const isBad = postureMetricsRef.current.level === "alert" ? 1 : 0;
         postureBuffer.frames.push(isBad ? "1" : "0");
         postureBuffer.badFrames += isBad;
         postureBuffer.lastSampleTimestamp = now;
