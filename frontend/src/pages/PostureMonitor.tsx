@@ -618,7 +618,15 @@ function DiagnosticCard({ title, value, helper, status, progress, detail }: Diag
               : "bg-emerald-500/10 text-emerald-500"
           }`}
         >
-          {status === "alert" ? "ALERT" : status === "warn" ? "WARN" : "GOOD"}
+          {(title.toLowerCase().includes('ear') || title.toLowerCase().includes('blink') || title.toLowerCase().includes('session time'))
+            ? (status === "alert" 
+                ? (title.toLowerCase().includes('ear') ? "CLOSED" 
+                  : title.toLowerCase().includes('session time') ? "EXTENDED" 
+                  : "LOW")
+                : status === "warn" 
+                  ? (title.toLowerCase().includes('ear') ? "SEMI-CLOSED" : "ADEQUATE")
+                  : (title.toLowerCase().includes('ear') ? "OPEN" : "OPTIMAL"))
+            : (status === "alert" ? "ALERT" : status === "warn" ? "WARN" : "GOOD")}
         </span>
       </div>
       <p className="text-xs text-muted-foreground">{helper}</p>
