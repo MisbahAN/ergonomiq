@@ -398,7 +398,7 @@ export function usePostureVision() {
       ctx.fillStyle = "#ffffff";
       ctx.font = "16px 'Inter', sans-serif";
       ctx.fillText(
-        eyes.ear ? `EAR: ${eyes.ear.toFixed(2)}` : "EAR: —",
+        eyes.ear ? `EAR: ${eyes.ear.toFixed(2)}` : "EAR: -",
         width - 210,
         15
       );

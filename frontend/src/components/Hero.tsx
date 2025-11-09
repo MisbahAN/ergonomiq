@@ -23,7 +23,7 @@ export function Hero() {
         </h1>
         
         <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-10 animate-fade-in">
-          Posture calibration, neck-drop alerts, blink-rate analytics, and an upcoming BioAmp-powered wristband —
+          Posture calibration, neck-drop alerts, blink-rate analytics, and an upcoming BioAmp-powered wristband -
           all in one dashboard and deployable on Vercel without a backend.
         </p>
         

@@ -29,7 +29,7 @@ const features = [
     icon: Hand,
     title: "RSI wristband prototype",
     description:
-      "BioAmp EXG Pill samples wrist muscle strain and triggers a local haptic puck today — wireless wristband coming soon.",
+      "BioAmp EXG Pill samples wrist muscle strain and triggers a local haptic puck today - wireless wristband coming soon.",
   },
   {
     icon: Lightbulb,
@@ -53,7 +53,7 @@ const features = [
     icon: Sparkles,
     title: "Ergonomic coaching",
     description:
-      "Context-aware tips translate sensor readings into human advice — monitor height, seating tweaks, lighting, and more.",
+      "Context-aware tips translate sensor readings into human advice - monitor height, seating tweaks, lighting, and more.",
   },
 ];
 

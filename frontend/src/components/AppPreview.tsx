@@ -19,7 +19,7 @@ const highlights = [
   },
   {
     title: "Local deployment",
-    description: "Ship the same CV logic used by our Python script directly in the browser — no backend servers.",
+    description: "Ship the same CV logic used by our Python script directly in the browser - no backend servers.",
   },
 ];
 
