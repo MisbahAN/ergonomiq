@@ -1,12 +1,12 @@
-import { 
-  signInWithEmailAndPassword, 
-  createUserWithEmailAndPassword, 
-  signOut, 
+import {
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signOut,
   User,
   GoogleAuthProvider,
   signInWithPopup,
   sendPasswordResetEmail,
-  updateProfile
+  updateProfile,
 } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 
@@ -26,6 +26,36 @@ export interface IRegisterCredentials {
   name?: string;
 }
 
+type EnsureProfileOptions = {
+  name?: string;
+  email?: string;
+};
+
+const ensureFirestoreUser = async (user: User, options?: EnsureProfileOptions) => {
+  try {
+    const { firestoreService } = await import("./firestoreService");
+    const existingUser = await firestoreService.getUser(user.uid);
+    if (existingUser) {
+      return;
+    }
+
+    const email = options?.email ?? user.email ?? "";
+    const name =
+      options?.name ??
+      user.displayName ??
+      (email ? email.split("@")[0] : "New User");
+
+    await firestoreService.createUser(user.uid, {
+      email,
+      name,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+  } catch (error) {
+    console.error("Error ensuring Firestore user profile:", error);
+  }
+};
+
 export const authService = {
   async login(credentials: ILoginCredentials): Promise<IAuthResponse> {
     try {
@@ -34,6 +64,9 @@ export const authService = {
         credentials.email,
         credentials.password
       );
+      await ensureFirestoreUser(userCredential.user, {
+        email: credentials.email,
+      });
       return { user: userCredential.user, error: null };
     } catch (error: any) {
       console.error("Login error:", error.message);
@@ -56,20 +89,10 @@ export const authService = {
         });
       }
 
-      // Create a user profile document in Firestore
-      try {
-        const { firestoreService } = await import("./firestoreService");
-        await firestoreService.createUser({
-          uid: userCredential.user.uid,
-          email: userCredential.user.email || credentials.email,
-          name: credentials.name || credentials.email.split('@')[0],
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        });
-      } catch (dbError) {
-        console.error("Error creating user profile in Firestore:", dbError);
-        // Don't fail the registration if Firestore creation fails
-      }
+      await ensureFirestoreUser(userCredential.user, {
+        email: userCredential.user.email || credentials.email,
+        name: credentials.name || credentials.email.split("@")[0],
+      });
 
       return { user: userCredential.user, error: null };
     } catch (error: any) {
@@ -91,27 +114,12 @@ export const authService = {
     const provider = new GoogleAuthProvider();
     try {
       const userCredential = await signInWithPopup(auth, provider);
-      
-      // Check if user profile exists in Firestore, create if it doesn't
-      try {
-        const { firestoreService } = await import("./firestoreService");
-        const existingUser = await firestoreService.getUser(userCredential.user.uid);
-        
-        if (!existingUser) {
-          // Create user profile in Firestore if it doesn't exist
-          await firestoreService.createUser({
-            uid: userCredential.user.uid,
-            email: userCredential.user.email || "",
-            name: userCredential.user.displayName || userCredential.user.email?.split('@')[0] || "",
-            createdAt: new Date(),
-            updatedAt: new Date(),
-          });
-        }
-      } catch (dbError) {
-        console.error("Error creating/updating user profile in Firestore:", dbError);
-        // Don't fail the login if Firestore creation fails
-      }
-      
+      await ensureFirestoreUser(userCredential.user, {
+        email: userCredential.user.email || "",
+        name:
+          userCredential.user.displayName ||
+          userCredential.user.email?.split("@")[0],
+      });
       return { user: userCredential.user, error: null };
     } catch (error: any) {
       console.error("Google login error:", error.message);
