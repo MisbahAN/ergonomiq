@@ -211,6 +211,9 @@ export function usePostureVision() {
   const poseLandmarkerRef = useRef<PoseLandmarker | null>(null);
   const faceLandmarkerRef = useRef<FaceLandmarker | null>(null);
   const animationRef = useRef<number | null>(null);
+  const backgroundIntervalRef = useRef<number | null>(null);
+  const detectionLoopRef = useRef<() => void>();
+  const processFrameRef = useRef<(poseResult: PoseLandmarkerResult, faceLandmarks: FaceLandmarksPoints) => void>();
   const audioContextRef = useRef<AudioContext | null>(null);
   const lastAlertRef = useRef(0);
 
@@ -270,6 +273,70 @@ export function usePostureVision() {
     setPostureMetrics({ ...postureMetricsRef.current });
     setEyeMetrics({ ...eyeMetricsRef.current });
     lastEmitRef.current = now;
+  }, []);
+
+  // Add visibility change handling to maintain camera session
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && sessionActiveRef.current) {
+        // When tab becomes visible again, use requestAnimationFrame for smooth rendering
+        if (backgroundIntervalRef.current) {
+          clearInterval(backgroundIntervalRef.current);
+          backgroundIntervalRef.current = null;
+        }
+        if (animationRef.current) {
+          cancelAnimationFrame(animationRef.current);
+        }
+        animationRef.current = requestAnimationFrame(detectionLoopRef.current!);
+      } else if (document.visibilityState === 'hidden' && sessionActiveRef.current) {
+        // When tab is hidden, try to continue processing with setInterval (for background operation)
+        // Note: Some browsers may still throttle setInterval in background tabs
+        if (animationRef.current) {
+          cancelAnimationFrame(animationRef.current);
+        }
+        
+        // Use setInterval for processing in background (though browsers may throttle this too)
+        backgroundIntervalRef.current = window.setInterval(() => {
+          const video = videoRef.current;
+          const poseLandmarker = poseLandmarkerRef.current;
+          if (!video || !poseLandmarker || !sessionActiveRef.current) {
+            if (backgroundIntervalRef.current) {
+              clearInterval(backgroundIntervalRef.current);
+              backgroundIntervalRef.current = null;
+            }
+            return;
+          }
+
+          if (video.readyState >= 2) {
+            const timestamp = performance.now();
+            const poseResult = poseLandmarker.detectForVideo(video, timestamp);
+            const faceResult = faceLandmarkerRef.current?.detectForVideo(
+              video,
+              timestamp
+            );
+
+            if (poseResult) {
+              const facePoints = faceResult?.faceLandmarks?.[0] ?? null;
+              processFrameRef.current?.(poseResult, facePoints);
+              // Don't draw to canvas when tab is hidden for performance
+            }
+          }
+        }, 300); // Process approximately 3 times per second when in background
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      if (backgroundIntervalRef.current) {
+        clearInterval(backgroundIntervalRef.current);
+        backgroundIntervalRef.current = null;
+      }
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current);
+        animationRef.current = null;
+      }
+    };
   }, []);
 
   const resetStates = useCallback(() => {
@@ -354,6 +421,10 @@ export function usePostureVision() {
     if (animationRef.current) {
       cancelAnimationFrame(animationRef.current);
       animationRef.current = null;
+    }
+    if (backgroundIntervalRef.current) {
+      clearInterval(backgroundIntervalRef.current);
+      backgroundIntervalRef.current = null;
     }
   }, []);
 
@@ -988,11 +1059,21 @@ export function usePostureVision() {
     if (poseResult) {
       const facePoints = faceResult?.faceLandmarks?.[0] ?? null;
       processFrame(poseResult, facePoints);
-      drawPose(poseResult, facePoints);
+      
+      // Only draw to canvas when tab is visible (for performance)
+      if (document.visibilityState === 'visible') {
+        drawPose(poseResult, facePoints);
+      }
     }
 
+    // Use requestAnimationFrame for smooth performance when tab is visible
+    // When tab is hidden, this might be throttled by the browser
     animationRef.current = requestAnimationFrame(detectionLoop);
   }, [drawPose, processFrame]);
+
+  // Store the function in ref to avoid dependency issues in other effects
+  detectionLoopRef.current = detectionLoop;
+  processFrameRef.current = processFrame;
 
   const startSession = useCallback(async () => {
     if (sessionActiveRef.current) return;
