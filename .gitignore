@@ -1,6 +1,9 @@
 # Virtual environments
 posture_env/
 
+# Firebase service account keys
+posture-ai-18e1b-firebase-adminsdk-fbsvc-4cc978908f.json
+
 # Python
 __pycache__/
 *.py[cod]
