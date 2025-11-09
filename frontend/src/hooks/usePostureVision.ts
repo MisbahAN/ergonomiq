@@ -88,6 +88,7 @@ type EyeProcessingState = {
 export interface PostureSessionSnapshot {
   timestampStart: Date;
   timestampEnd: Date;
+  // String containing '0' for Good/Warn posture and '1' for Alert (bad) posture
   postureData: string;
   totalFrames: number;
   badFrames: number;
@@ -117,7 +118,7 @@ export interface SessionUploadPayload {
 
 type SessionBuffers = {
   posture: {
-    frames: ("0" | "1")[];
+    frames: ("0" | "1")[]; // 0 = Good/Warn posture, 1 = Alert (bad) posture
     badFrames: number;
     lastSampleTimestamp: number;
   };
@@ -838,7 +839,7 @@ export function usePostureVision() {
         sessionActiveRef.current &&
         now - postureBuffer.lastSampleTimestamp >= POSTURE_SAMPLE_INTERVAL_MS
       ) {
-        const isBad = hasAlerts ? 1 : 0;
+        const isBad = postureMetricsRef.current.level === "alert" ? 1 : 0;
         postureBuffer.frames.push(isBad ? "1" : "0");
         postureBuffer.badFrames += isBad;
         postureBuffer.lastSampleTimestamp = now;
