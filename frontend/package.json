@@ -8,7 +8,9 @@
     "build": "vite build",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "seed:firestore": "node seeding-database/seedFirestore.js",
+    "seed:firestore:cleanup": "node seeding-database/seedFirestore.js --cleanup"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
@@ -47,6 +49,7 @@
     "date-fns": "^3.6.0",
     "embla-carousel-react": "^8.6.0",
     "firebase": "^12.5.0",
+    "firebase-admin": "^13.6.0",
     "gsap": "^3.13.0",
     "input-otp": "^1.4.2",
     "lucide-react": "^0.462.0",
