@@ -1,7 +1,6 @@
 import CardSwap, { Card } from "./CardSwap";
 import dashboardPreview from "@/assets/dashboard-preview.jpg";
 import postureMonitorPreview from "@/assets/posture-monitor-preview.jpg";
-import rsiTrackerPreview from "@/assets/rsi-tracker-preview.jpg";
 import { CheckCircle2 } from "lucide-react";
 
 const highlights = [
@@ -14,8 +13,8 @@ const highlights = [
     description: "EAR, blinks/min, and break timers visualize how your eyes are coping during deep work.",
   },
   {
-    title: "RSI wristband pathway",
-    description: "Prototype BioAmp EXG Pill feed for typists today, consumer wristband integration next.",
+    title: "Break automation",
+    description: "Micro-break timers tie into blink data so you rest eyes and shoulders before fatigue stacks up.",
   },
   {
     title: "Local deployment",
@@ -36,7 +35,7 @@ export function AppPreview() {
               </span>
             </h2>
             <p className="text-lg text-muted-foreground mb-8">
-              Get real-time insights into your posture, wrist health, and ergonomic habits with our intuitive dashboard and monitoring tools.
+              Get real-time insights into your posture, eye comfort, and ergonomic habits with our intuitive dashboard and monitoring tools.
             </p>
             <div className="space-y-6">
               {highlights.map((item) => (
@@ -68,9 +67,6 @@ export function AppPreview() {
                 </Card>
                 <Card>
                   <img src={postureMonitorPreview} alt="Posture Monitor" />
-                </Card>
-                <Card>
-                  <img src={rsiTrackerPreview} alt="RSI Tracker" />
                 </Card>
               </CardSwap>
             </div>

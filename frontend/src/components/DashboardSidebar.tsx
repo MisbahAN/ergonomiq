@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { Activity, BarChart3, Hand, Shield, Settings } from "lucide-react";
+import { Activity, BarChart3, Shield, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export function DashboardSidebar() {
@@ -38,14 +38,6 @@ export function DashboardSidebar() {
             >
               <Activity className="mr-2 h-4 w-4" />
               POSTURE MONITOR
-            </Button>
-            <Button
-              variant="ghost"
-              className="w-full justify-start h-9 px-3 hover:bg-[#1a1a1a] font-['Space_Mono'] text-xs"
-              onClick={() => navigate('/rsi')}
-            >
-              <Hand className="mr-2 h-4 w-4" />
-              RSI TRACKER
             </Button>
             <Button
               variant="ghost"

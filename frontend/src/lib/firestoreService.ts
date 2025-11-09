@@ -38,11 +38,9 @@ export interface UserSettings {
 
 export interface UserAnalytics {
   postureScore: number;
-  rsiRisk: RiskLevel;
   eyeStrainRisk: RiskLevel;
   avgSessionTime: number;
   weeklyImprovement: number;
-  weeklyRSIImprovement: number;
   weeklyEyeStrainImprovement: number;
   breakStatus: number;
   avgEyeStrainScore: number;
@@ -66,18 +64,6 @@ export interface PostureSession {
   triggerAlert: boolean;
   processed: boolean;
   device: string;
-  createdAt?: Timestamp | FieldValue | null;
-  updatedAt?: Timestamp | FieldValue | null;
-}
-
-export interface RSISession {
-  id?: string;
-  timestampStart: Timestamp | FieldValue;
-  duration: number;
-  emgSignalAvg: number;
-  fatigueRisk: number;
-  device: string;
-  processed: boolean;
   createdAt?: Timestamp | FieldValue | null;
   updatedAt?: Timestamp | FieldValue | null;
 }
@@ -111,7 +97,6 @@ export interface DeviceMetadata {
 
 const USERS_COLLECTION = "users";
 const POSTURE_SESSIONS_SUBCOLLECTION = "postureSessions";
-const RSI_SESSIONS_SUBCOLLECTION = "rsiSessions";
 const EYE_STRAIN_SESSIONS_SUBCOLLECTION = "eyeStrainSessions";
 const DEVICES_SUBCOLLECTION = "devices";
 
@@ -142,13 +127,6 @@ const ensureNumber = (value: number | undefined | null, fallback = 0) =>
 const clamp = (value: number, min = 0, max = 1) =>
   Math.min(max, Math.max(min, value));
 
-const fatigueRiskToLabel = (value: number | undefined | null): RiskLevel => {
-  if (value === undefined || value === null) return "LOW";
-  if (value >= 0.66) return "HIGH";
-  if (value >= 0.33) return "MEDIUM";
-  return "LOW";
-};
-
 const computeEyeStrainRisk = (alertsAvg: number): RiskLevel => {
   if (alertsAvg >= 4) return "HIGH";
   if (alertsAvg >= 2) return "MEDIUM";
@@ -164,11 +142,9 @@ const buildDefaultSettings = (email: string): UserSettings => ({
 
 const buildDefaultAnalytics = (): UserAnalytics => ({
   postureScore: 0,
-  rsiRisk: "LOW",
   eyeStrainRisk: "LOW",
   avgSessionTime: 0,
   weeklyImprovement: 0,
-  weeklyRSIImprovement: 0,
   weeklyEyeStrainImprovement: 0,
   breakStatus: 0,
   avgEyeStrainScore: 0,
@@ -198,18 +174,11 @@ const recalcAnalyticsInternal = async (uid: string, cachedAnalytics?: UserAnalyt
       : undefined;
   }
 
-  const [postureSnapshot, rsiSnapshot, eyeSnapshot] = await Promise.all([
+  const [postureSnapshot, eyeSnapshot] = await Promise.all([
     getDocs(
       query(
         getUserSubcollection(uid, POSTURE_SESSIONS_SUBCOLLECTION),
         orderBy("timestampEnd", "desc"),
-        limit(SESSION_STATS_LIMIT)
-      )
-    ),
-    getDocs(
-      query(
-        getUserSubcollection(uid, RSI_SESSIONS_SUBCOLLECTION),
-        orderBy("timestampStart", "desc"),
         limit(SESSION_STATS_LIMIT)
       )
     ),
@@ -225,7 +194,6 @@ const recalcAnalyticsInternal = async (uid: string, cachedAnalytics?: UserAnalyt
   const postureSessions = postureSnapshot.docs.map(
     (sessionDoc) => sessionDoc.data() as PostureSession
   );
-  const rsiSessions = rsiSnapshot.docs.map((sessionDoc) => sessionDoc.data() as RSISession);
   const eyeStrainSessions = eyeSnapshot.docs.map(
     (sessionDoc) => sessionDoc.data() as EyeStrainSession
   );
@@ -253,25 +221,6 @@ const recalcAnalyticsInternal = async (uid: string, cachedAnalytics?: UserAnalyt
           ).toFixed(2)
         )
       : ensureNumber(previousAnalytics?.avgSessionTime, 0);
-
-  // RSI analytics
-  const fatigueValues = rsiSessions
-    .map((session) => clamp(ensureNumber(session.fatigueRisk, 0), 0, 1))
-    .filter((value) => value >= 0);
-  const avgFatigue = average(fatigueValues);
-  const rsiRisk =
-    avgFatigue !== undefined
-      ? fatigueRiskToLabel(avgFatigue)
-      : previousAnalytics?.rsiRisk ?? "LOW";
-  const prevRsiRiskScore = previousAnalytics
-    ? { LOW: 100, MEDIUM: 50, HIGH: 0 }[previousAnalytics.rsiRisk]
-    : 100;
-  const newRsiScore =
-    avgFatigue !== undefined ? Number(((1 - avgFatigue) * 100).toFixed(2)) : prevRsiRiskScore;
-  const weeklyRSIImprovement =
-    avgFatigue !== undefined
-      ? Number((newRsiScore - prevRsiRiskScore).toFixed(2))
-      : ensureNumber(previousAnalytics?.weeklyRSIImprovement, 0);
 
   // Eye strain analytics
   const eyeScores = eyeStrainSessions.map((session) => {
@@ -310,8 +259,6 @@ const recalcAnalyticsInternal = async (uid: string, cachedAnalytics?: UserAnalyt
     "analytics.postureScore": postureScore,
     "analytics.weeklyImprovement": weeklyImprovement,
     "analytics.avgSessionTime": avgSessionTime,
-    "analytics.rsiRisk": rsiRisk,
-    "analytics.weeklyRSIImprovement": weeklyRSIImprovement,
     "analytics.eyeStrainRisk": eyeStrainRisk,
     "analytics.avgEyeStrainScore": avgEyeStrainScore,
     "analytics.weeklyEyeStrainImprovement": weeklyEyeStrainImprovement,
@@ -459,44 +406,6 @@ export const firestoreService = {
     return sessionsSnapshot.docs.map((sessionDoc) => ({
       id: sessionDoc.id,
       ...(sessionDoc.data() as PostureSession),
-    }));
-  },
-
-  async logRSISession(
-    uid: string,
-    sessionData: Omit<RSISession, "id" | "timestampStart" | "processed" | "createdAt" | "updatedAt"> & {
-      timestampStart?: TimestampInput;
-      processed?: boolean;
-    }
-  ): Promise<string> {
-    const sessionRef = await addDoc(
-      getUserSubcollection(uid, RSI_SESSIONS_SUBCOLLECTION),
-      {
-        ...sessionData,
-        timestampStart: toTimestamp(sessionData.timestampStart),
-        processed: sessionData.processed ?? false,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      }
-    );
-
-    await recalcAnalyticsInternal(uid);
-
-    return sessionRef.id;
-  },
-
-  async getUserRSISessions(uid: string, take: number = 20): Promise<RSISession[]> {
-    const sessionsSnapshot = await getDocs(
-      query(
-        getUserSubcollection(uid, RSI_SESSIONS_SUBCOLLECTION),
-        orderBy("timestampStart", "desc"),
-        limit(take)
-      )
-    );
-
-    return sessionsSnapshot.docs.map((sessionDoc) => ({
-      id: sessionDoc.id,
-      ...(sessionDoc.data() as RSISession),
     }));
   },
 

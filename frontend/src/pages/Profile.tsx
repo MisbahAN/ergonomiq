@@ -416,7 +416,7 @@ export default function Profile() {
                 Notifications & Reminders
               </h2>
               <p className="text-sm text-muted-foreground mb-6">
-                Choose how you'd like to receive posture and RSI reminders.
+                Choose how you'd like to receive posture and eye-strain reminders.
               </p>
 
               <div className="space-y-4">

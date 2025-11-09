@@ -1,4 +1,3 @@
-import { Bell } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export function DashboardRightPanel() {
@@ -53,7 +52,7 @@ export function DashboardRightPanel() {
               <div className="flex-1">
                 <p className="text-xs font-['Space_Mono'] font-bold mb-1">BREAK REMINDER</p>
                 <p className="text-[10px] text-muted-foreground leading-relaxed">
-                  Time to take a 5-minute wrist break. Your RSI score is low.
+                  Time to take a 20-20-20 break. Your blink rate dipped below the healthy range.
                 </p>
                 <p className="text-[9px] text-muted-foreground mt-2">4 HOURS AGO</p>
               </div>

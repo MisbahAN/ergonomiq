@@ -27,9 +27,9 @@ const features = [
   },
   {
     icon: Hand,
-    title: "RSI wristband prototype",
+    title: "Break + stretch guidance",
     description:
-      "BioAmp EXG Pill samples wrist muscle strain and triggers a local haptic puck today - wireless wristband coming soon.",
+      "Micro-break cadence pairs with guided hand, neck, and shoulder resets so you can stay loose without extra hardware.",
   },
   {
     icon: Lightbulb,
@@ -47,7 +47,7 @@ const features = [
     icon: BarChart3,
     title: "Actionable analytics",
     description:
-      "Unified dashboard surfaces posture quality, blink consistency, and (soon) RSI telemetry with trend lines.",
+      "Unified dashboard surfaces posture quality, blink consistency, and break adherence with trend lines.",
   },
   {
     icon: Sparkles,

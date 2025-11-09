@@ -16,7 +16,7 @@ export function Hero() {
         </div>
         
         <h1 className="text-5xl md:text-7xl font-bold mb-6 leading-tight animate-fade-in">
-          Unified neck, eye &amp; RSI coach{" "}
+          Unified neck &amp; eye coach{" "}
           <span className="bg-gradient-to-r from-primary via-accent to-primary-dark bg-clip-text text-transparent">
             for desk workers
           </span>

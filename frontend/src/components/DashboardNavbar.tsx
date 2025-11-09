@@ -14,7 +14,6 @@ export function DashboardNavbar() {
   const navLinks = [
     { name: "Dashboard", path: "/dashboard" },
     { name: "Posture Monitor", path: "/posture" },
-    { name: "RSI Tracker", path: "/rsi" },
     { name: "Profile", path: "/profile" },
   ];
 
