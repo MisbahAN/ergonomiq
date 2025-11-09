@@ -15,23 +15,9 @@ import {
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 
-export interface IUserSettings {
-  emailAlerts: boolean;
-  notificationFrequency: number; // seconds
-  alertEmail?: string;
-  updatedAt?: Timestamp | FieldValue | null;
-}
+type RiskLevel = "LOW" | "MEDIUM" | "HIGH";
 
-export interface IUserAnalytics {
-  postureScore?: number;
-  rsiRisk?: "LOW" | "MEDIUM" | "HIGH";
-  weeklyImprovement?: number;
-  breakStatus?: number;
-  avgSessionTime?: number;
-  lastUpdated?: Timestamp | FieldValue | null;
-}
-
-export interface IUserData {
+export interface UserProfile {
   uid: string;
   name?: string;
   email: string;
@@ -41,11 +27,34 @@ export interface IUserData {
   gender?: string;
   createdAt?: Timestamp | FieldValue | null;
   updatedAt?: Timestamp | FieldValue | null;
-  settings?: IUserSettings;
-  analytics?: IUserAnalytics;
 }
 
-export interface IPostureSession {
+export interface UserSettings {
+  emailAlerts: boolean;
+  notificationFrequency: number;
+  alertEmail?: string;
+  updatedAt?: Timestamp | FieldValue | null;
+}
+
+export interface UserAnalytics {
+  postureScore: number;
+  rsiRisk: RiskLevel;
+  eyeStrainRisk: RiskLevel;
+  avgSessionTime: number;
+  weeklyImprovement: number;
+  weeklyRSIImprovement: number;
+  weeklyEyeStrainImprovement: number;
+  breakStatus: number;
+  avgEyeStrainScore: number;
+  lastUpdated?: Timestamp | FieldValue | null;
+}
+
+export interface UserDocument extends UserProfile {
+  settings?: UserSettings;
+  analytics?: UserAnalytics;
+}
+
+export interface PostureSession {
   id?: string;
   frequency: number;
   timestampStart: Timestamp | FieldValue;
@@ -61,27 +70,61 @@ export interface IPostureSession {
   updatedAt?: Timestamp | FieldValue | null;
 }
 
-export interface IRSISession {
+export interface RSISession {
   id?: string;
   timestampStart: Timestamp | FieldValue;
   duration: number;
   emgSignalAvg: number;
   fatigueRisk: number;
   device: string;
+  processed: boolean;
   createdAt?: Timestamp | FieldValue | null;
   updatedAt?: Timestamp | FieldValue | null;
+}
+
+export interface EyeStrainSession {
+  id?: string;
+  timestampStart: Timestamp | FieldValue;
+  duration: number;
+  device: string;
+  avgBlinkRate: number;
+  totalBlinks: number;
+  avgEAR: number;
+  eyeClosureEvents: number;
+  strainAlerts: number;
+  lowBlinkRateAlerts: number;
+  takeBreakAlerts: number;
+  eyesStrainedAlerts: number;
+  maxSessionTimeWithoutBreak: number;
+  processed: boolean;
+  createdAt?: Timestamp | FieldValue | null;
+  updatedAt?: Timestamp | FieldValue | null;
+}
+
+export interface DeviceMetadata {
+  id?: string;
+  name: string;
+  type: string;
+  lastSeen: Timestamp | FieldValue;
+  active: boolean;
 }
 
 const USERS_COLLECTION = "users";
 const POSTURE_SESSIONS_SUBCOLLECTION = "postureSessions";
 const RSI_SESSIONS_SUBCOLLECTION = "rsiSessions";
-const DEFAULT_NOTIFICATION_FREQUENCY = 60; // seconds
+const EYE_STRAIN_SESSIONS_SUBCOLLECTION = "eyeStrainSessions";
+const DEVICES_SUBCOLLECTION = "devices";
+
+const DEFAULT_NOTIFICATION_FREQUENCY = 60;
+const DEFAULT_EMAIL_ALERTS = true;
+const POSTURE_ALERT_THRESHOLD = 0.5;
+const SESSION_STATS_LIMIT = 30;
+
+type TimestampInput = Date | Timestamp | FieldValue | null | undefined;
 
 const getUserRef = (uid: string) => doc(db, USERS_COLLECTION, uid);
 const getUserSubcollection = (uid: string, subcollection: string) =>
   collection(getUserRef(uid), subcollection);
-
-type TimestampInput = Date | Timestamp | FieldValue | undefined;
 
 const toTimestamp = (value?: TimestampInput) => {
   if (!value) {
@@ -93,183 +136,269 @@ const toTimestamp = (value?: TimestampInput) => {
   return value;
 };
 
+const ensureNumber = (value: number | undefined | null, fallback = 0) =>
+  typeof value === "number" && !Number.isNaN(value) ? value : fallback;
+
+const clamp = (value: number, min = 0, max = 1) =>
+  Math.min(max, Math.max(min, value));
+
+const fatigueRiskToLabel = (value: number | undefined | null): RiskLevel => {
+  if (value === undefined || value === null) return "LOW";
+  if (value >= 0.66) return "HIGH";
+  if (value >= 0.33) return "MEDIUM";
+  return "LOW";
+};
+
+const computeEyeStrainRisk = (alertsAvg: number): RiskLevel => {
+  if (alertsAvg >= 4) return "HIGH";
+  if (alertsAvg >= 2) return "MEDIUM";
+  return "LOW";
+};
+
+const buildDefaultSettings = (email: string): UserSettings => ({
+  emailAlerts: DEFAULT_EMAIL_ALERTS,
+  notificationFrequency: DEFAULT_NOTIFICATION_FREQUENCY,
+  alertEmail: email,
+  updatedAt: serverTimestamp(),
+});
+
+const buildDefaultAnalytics = (): UserAnalytics => ({
+  postureScore: 0,
+  rsiRisk: "LOW",
+  eyeStrainRisk: "LOW",
+  avgSessionTime: 0,
+  weeklyImprovement: 0,
+  weeklyRSIImprovement: 0,
+  weeklyEyeStrainImprovement: 0,
+  breakStatus: 0,
+  avgEyeStrainScore: 0,
+  lastUpdated: serverTimestamp(),
+});
+
+const getPostureSessionHours = (session: PostureSession) => {
+  const frames = ensureNumber(session.totalFrames, 0);
+  const frequency = ensureNumber(session.frequency, DEFAULT_NOTIFICATION_FREQUENCY);
+  return Number(((frames * frequency) / 3600).toFixed(2));
+};
+
+const average = (values: number[]) => {
+  if (!values.length) return undefined;
+  const sum = values.reduce((acc, value) => acc + value, 0);
+  return sum / values.length;
+};
+
+const recalcAnalyticsInternal = async (uid: string, cachedAnalytics?: UserAnalytics) => {
+  const userRef = getUserRef(uid);
+  let previousAnalytics = cachedAnalytics;
+
+  if (!previousAnalytics) {
+    const snapshot = await getDoc(userRef);
+    previousAnalytics = snapshot.exists()
+      ? ((snapshot.data()?.analytics as UserAnalytics) ?? undefined)
+      : undefined;
+  }
+
+  const [postureSnapshot, rsiSnapshot, eyeSnapshot] = await Promise.all([
+    getDocs(
+      query(
+        getUserSubcollection(uid, POSTURE_SESSIONS_SUBCOLLECTION),
+        orderBy("timestampEnd", "desc"),
+        limit(SESSION_STATS_LIMIT)
+      )
+    ),
+    getDocs(
+      query(
+        getUserSubcollection(uid, RSI_SESSIONS_SUBCOLLECTION),
+        orderBy("timestampStart", "desc"),
+        limit(SESSION_STATS_LIMIT)
+      )
+    ),
+    getDocs(
+      query(
+        getUserSubcollection(uid, EYE_STRAIN_SESSIONS_SUBCOLLECTION),
+        orderBy("timestampStart", "desc"),
+        limit(SESSION_STATS_LIMIT)
+      )
+    ),
+  ]);
+
+  const postureSessions = postureSnapshot.docs.map(
+    (sessionDoc) => sessionDoc.data() as PostureSession
+  );
+  const rsiSessions = rsiSnapshot.docs.map((sessionDoc) => sessionDoc.data() as RSISession);
+  const eyeStrainSessions = eyeSnapshot.docs.map(
+    (sessionDoc) => sessionDoc.data() as EyeStrainSession
+  );
+
+  // Posture analytics
+  const postureRatios = postureSessions
+    .map((session) => ensureNumber(session.badRatio, 0))
+    .filter((ratio) => ratio >= 0);
+  const avgBadRatio = average(postureRatios);
+  const postureScore =
+    avgBadRatio !== undefined
+      ? Number(((1 - clamp(avgBadRatio, 0, 1)) * 100).toFixed(2))
+      : ensureNumber(previousAnalytics?.postureScore, 0);
+  const prevPostureScore = ensureNumber(previousAnalytics?.postureScore, postureScore);
+  const weeklyImprovement =
+    avgBadRatio !== undefined
+      ? Number((postureScore - prevPostureScore).toFixed(2))
+      : ensureNumber(previousAnalytics?.weeklyImprovement, 0);
+  const avgSessionTime =
+    postureSessions.length > 0
+      ? Number(
+          (
+            postureSessions.reduce((hours, session) => hours + getPostureSessionHours(session), 0) /
+            postureSessions.length
+          ).toFixed(2)
+        )
+      : ensureNumber(previousAnalytics?.avgSessionTime, 0);
+
+  // RSI analytics
+  const fatigueValues = rsiSessions
+    .map((session) => clamp(ensureNumber(session.fatigueRisk, 0), 0, 1))
+    .filter((value) => value >= 0);
+  const avgFatigue = average(fatigueValues);
+  const rsiRisk =
+    avgFatigue !== undefined
+      ? fatigueRiskToLabel(avgFatigue)
+      : previousAnalytics?.rsiRisk ?? "LOW";
+  const prevRsiRiskScore = previousAnalytics
+    ? { LOW: 100, MEDIUM: 50, HIGH: 0 }[previousAnalytics.rsiRisk]
+    : 100;
+  const newRsiScore =
+    avgFatigue !== undefined ? Number(((1 - avgFatigue) * 100).toFixed(2)) : prevRsiRiskScore;
+  const weeklyRSIImprovement =
+    avgFatigue !== undefined
+      ? Number((newRsiScore - prevRsiRiskScore).toFixed(2))
+      : ensureNumber(previousAnalytics?.weeklyRSIImprovement, 0);
+
+  // Eye strain analytics
+  const eyeScores = eyeStrainSessions.map((session) => {
+    const blinkScore = clamp(session.avgBlinkRate / 20, 0, 1);
+    const earScore = 1 - clamp(session.avgEAR / 0.4, 0, 1);
+    return Number(((blinkScore + earScore) / 2).toFixed(2));
+  });
+  const avgEyeStrainScore =
+    eyeScores.length > 0
+      ? Number((eyeScores.reduce((sum, value) => sum + value, 0) / eyeScores.length).toFixed(2))
+      : ensureNumber(previousAnalytics?.avgEyeStrainScore, 0);
+  const prevEyeScore = ensureNumber(previousAnalytics?.avgEyeStrainScore, avgEyeStrainScore);
+  const weeklyEyeStrainImprovement =
+    eyeScores.length > 0
+      ? Number(((avgEyeStrainScore - prevEyeScore) * 100).toFixed(2))
+      : ensureNumber(previousAnalytics?.weeklyEyeStrainImprovement, 0);
+  const totalStrainAlerts = eyeStrainSessions.reduce(
+    (sum, session) => sum + ensureNumber(session.strainAlerts, 0),
+    0
+  );
+  const totalSessions = Math.max(1, eyeStrainSessions.length);
+  const eyeStrainRisk =
+    eyeStrainSessions.length > 0
+      ? computeEyeStrainRisk(totalStrainAlerts / totalSessions)
+      : previousAnalytics?.eyeStrainRisk ?? "LOW";
+  const breakStatusCount = eyeStrainSessions.reduce(
+    (sum, session) => sum + ensureNumber(session.takeBreakAlerts, 0),
+    0
+  );
+  const breakStatus =
+    eyeStrainSessions.length > 0
+      ? breakStatusCount
+      : ensureNumber(previousAnalytics?.breakStatus, 0);
+
+  const analyticsUpdate: Record<string, any> = {
+    "analytics.postureScore": postureScore,
+    "analytics.weeklyImprovement": weeklyImprovement,
+    "analytics.avgSessionTime": avgSessionTime,
+    "analytics.rsiRisk": rsiRisk,
+    "analytics.weeklyRSIImprovement": weeklyRSIImprovement,
+    "analytics.eyeStrainRisk": eyeStrainRisk,
+    "analytics.avgEyeStrainScore": avgEyeStrainScore,
+    "analytics.weeklyEyeStrainImprovement": weeklyEyeStrainImprovement,
+    "analytics.breakStatus": breakStatus,
+    "analytics.lastUpdated": serverTimestamp(),
+  };
+
+  await updateDoc(userRef, analyticsUpdate);
+};
+
 const countBadFrames = (postureString: string) =>
   postureString.split("").filter((char) => char === "1").length;
 
-const recalculateAnalytics = async (
-  uid: string,
-  fallbackFrequency: number,
-  previousAnalytics?: IUserAnalytics
-) => {
-  const sessionsSnapshot = await getDocs(
-    query(
-      getUserSubcollection(uid, POSTURE_SESSIONS_SUBCOLLECTION),
-      orderBy("timestampEnd", "desc"),
-      limit(20)
-    )
-  );
-
-  if (sessionsSnapshot.empty) {
-    await updateDoc(getUserRef(uid), {
-      "analytics.lastUpdated": serverTimestamp(),
-    });
-    return;
-  }
-
-  const ratios = sessionsSnapshot.docs
-    .map((sessionDoc) => sessionDoc.data()?.badRatio)
-    .filter((ratio): ratio is number => typeof ratio === "number");
-
-  const avgBadRatio = ratios.length
-    ? ratios.reduce((sum, ratio) => sum + ratio, 0) / ratios.length
-    : 0;
-
-  const postureScore = Number((1 - avgBadRatio).toFixed(2));
-  const previousScore =
-    typeof previousAnalytics?.postureScore === "number"
-      ? previousAnalytics.postureScore
-      : postureScore;
-
-  const weeklyImprovement = Number(
-    ((postureScore - previousScore) * 100).toFixed(2)
-  );
-
-  const breakStatus =
-    typeof previousAnalytics?.breakStatus === "number"
-      ? previousAnalytics.breakStatus
-      : Math.max(0, Math.round((1 - avgBadRatio) * 10));
-
-  const avgSessionTime =
-    typeof previousAnalytics?.avgSessionTime === "number"
-      ? previousAnalytics.avgSessionTime
-      : Number((fallbackFrequency / 3600).toFixed(2));
-
-  await updateDoc(getUserRef(uid), {
-    "analytics.postureScore": postureScore,
-    "analytics.weeklyImprovement": weeklyImprovement,
-    "analytics.breakStatus": breakStatus,
-    "analytics.avgSessionTime": avgSessionTime,
-    "analytics.rsiRisk": previousAnalytics?.rsiRisk ?? "LOW",
-    "analytics.lastUpdated": serverTimestamp(),
-  });
-};
-
 export const firestoreService = {
-  // User operations
-  async getUser(uid: string): Promise<IUserData | null> {
-    try {
-      const snapshot = await getDoc(getUserRef(uid));
-      if (!snapshot.exists()) {
-        return null;
-      }
-      return { uid: snapshot.id, ...(snapshot.data() as IUserData) };
-    } catch (error) {
-      console.error("Error getting user:", error);
-      throw error;
+  async getUser(uid: string): Promise<UserDocument | null> {
+    const snapshot = await getDoc(getUserRef(uid));
+    if (!snapshot.exists()) {
+      return null;
     }
+    return { ...(snapshot.data() as UserDocument), uid: snapshot.id };
   },
 
   async createUser(
-    userData: Partial<IUserData> & { uid: string; email: string }
+    uid: string,
+    profileData: Partial<Omit<UserProfile, "uid">> & {
+      email: string;
+      settings?: UserSettings;
+      analytics?: UserAnalytics;
+    }
   ): Promise<void> {
-    try {
-      const userRef = getUserRef(userData.uid);
-      const now = serverTimestamp();
+    const userRef = getUserRef(uid);
+    const now = serverTimestamp();
+    const payload: Record<string, any> = {
+      uid,
+      name: profileData.name ?? "",
+      email: profileData.email,
+      occupation: profileData.occupation ?? "",
+      ergonomicGoal: profileData.ergonomicGoal ?? "both",
+      age: profileData.age ?? null,
+      gender: profileData.gender ?? "",
+      createdAt: profileData.createdAt ?? now,
+      updatedAt: now,
+      settings: profileData.settings ?? buildDefaultSettings(profileData.email),
+      analytics: profileData.analytics ?? buildDefaultAnalytics(),
+    };
+    await setDoc(userRef, payload, { merge: true });
+  },
 
-      const payload: Record<string, any> = {
-        uid: userData.uid,
-        name: userData.name ?? "",
-        email: userData.email,
-        occupation: userData.occupation ?? "",
-        ergonomicGoal: userData.ergonomicGoal ?? "both",
-        age: userData.age ?? null,
-        gender: userData.gender ?? "",
-        createdAt: userData.createdAt ?? now,
-        updatedAt: now,
-        settings: {
-          emailAlerts: userData.settings?.emailAlerts ?? true,
-          notificationFrequency:
-            userData.settings?.notificationFrequency ?? DEFAULT_NOTIFICATION_FREQUENCY,
-          alertEmail: userData.settings?.alertEmail ?? userData.email,
-          updatedAt: now,
-        },
-        analytics: {
-          postureScore: userData.analytics?.postureScore ?? 1,
-          rsiRisk: userData.analytics?.rsiRisk ?? "LOW",
-          weeklyImprovement: userData.analytics?.weeklyImprovement ?? 0,
-          breakStatus: userData.analytics?.breakStatus ?? 0,
-          avgSessionTime: userData.analytics?.avgSessionTime ?? 0,
-          lastUpdated: now,
-        },
-      };
+  async updateUser(uid: string, userData: Partial<UserProfile>): Promise<void> {
+    await setDoc(
+      getUserRef(uid),
+      {
+        ...userData,
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true }
+    );
+  },
 
-      await setDoc(userRef, payload, { merge: true });
-    } catch (error) {
-      console.error("Error creating user:", error);
-      throw error;
+  async getUserSettings(uid: string): Promise<UserSettings | null> {
+    const snapshot = await getDoc(getUserRef(uid));
+    if (!snapshot.exists()) return null;
+    return (snapshot.data()?.settings as UserSettings) ?? null;
+  },
+
+  async updateUserSettings(uid: string, settings: Partial<UserSettings>): Promise<void> {
+    const updatePayload: Record<string, any> = {
+      "settings.updatedAt": serverTimestamp(),
+    };
+
+    if (settings.emailAlerts !== undefined) {
+      updatePayload["settings.emailAlerts"] = settings.emailAlerts;
     }
-  },
-
-  async updateUser(uid: string, userData: Partial<IUserData>): Promise<void> {
-    try {
-      await setDoc(
-        getUserRef(uid),
-        {
-          ...userData,
-          updatedAt: serverTimestamp(),
-        },
-        { merge: true }
-      );
-    } catch (error) {
-      console.error("Error updating user:", error);
-      throw error;
+    if (settings.notificationFrequency !== undefined) {
+      updatePayload["settings.notificationFrequency"] = settings.notificationFrequency;
     }
-  },
-
-  async getUserSettings(uid: string): Promise<IUserSettings | null> {
-    try {
-      const snapshot = await getDoc(getUserRef(uid));
-      if (!snapshot.exists()) return null;
-      return (snapshot.data()?.settings as IUserSettings) ?? null;
-    } catch (error) {
-      console.error("Error getting user settings:", error);
-      throw error;
+    if (settings.alertEmail !== undefined) {
+      updatePayload["settings.alertEmail"] = settings.alertEmail;
     }
+
+    await setDoc(getUserRef(uid), updatePayload, { merge: true });
   },
 
-  async getNotificationFrequency(uid: string): Promise<number> {
-    const settings = await this.getUserSettings(uid);
-    return settings?.notificationFrequency ?? DEFAULT_NOTIFICATION_FREQUENCY;
-  },
-
-  async updateUserSettings(uid: string, settings: IUserSettings): Promise<void> {
-    try {
-      const update: Record<string, any> = {
-        "settings.updatedAt": serverTimestamp(),
-      };
-
-      if (settings.emailAlerts !== undefined) {
-        update["settings.emailAlerts"] = settings.emailAlerts;
-      }
-      if (settings.notificationFrequency !== undefined) {
-        update["settings.notificationFrequency"] = settings.notificationFrequency;
-      }
-      if (settings.alertEmail !== undefined) {
-        update["settings.alertEmail"] = settings.alertEmail;
-      }
-
-      await setDoc(getUserRef(uid), update, { merge: true });
-    } catch (error) {
-      console.error("Error updating user settings:", error);
-      throw error;
-    }
-  },
-
-  // Posture sessions
   async logPostureSession(
     uid: string,
-    postureData: string,
-    options?: {
+    sessionData: {
+      postureData: string;
       device?: string;
       frequency?: number;
       timestampStart?: TimestampInput;
@@ -277,121 +406,154 @@ export const firestoreService = {
       processed?: boolean;
     }
   ): Promise<{ sessionId: string; triggerAlert: boolean; badRatio: number }> {
-    try {
-      const userRef = getUserRef(uid);
-      const userSnapshot = await getDoc(userRef);
-      const userSettings = userSnapshot.exists()
-        ? (userSnapshot.data()?.settings as IUserSettings | undefined)
-        : undefined;
-      const previousAnalytics = userSnapshot.exists()
-        ? (userSnapshot.data()?.analytics as IUserAnalytics | undefined)
-        : undefined;
+    const userSnapshot = await getDoc(getUserRef(uid));
+    const userSettings = userSnapshot.exists()
+      ? ((userSnapshot.data()?.settings as UserSettings) ?? undefined)
+      : undefined;
+    const previousAnalytics = userSnapshot.exists()
+      ? ((userSnapshot.data()?.analytics as UserAnalytics) ?? undefined)
+      : undefined;
 
-      const frequency =
-        options?.frequency ??
-        userSettings?.notificationFrequency ??
-        DEFAULT_NOTIFICATION_FREQUENCY;
+    const frequency = sessionData.frequency ?? userSettings?.notificationFrequency ?? DEFAULT_NOTIFICATION_FREQUENCY;
+    const totalFrames = Math.max(1, sessionData.postureData.length);
+    const badFrames = countBadFrames(sessionData.postureData);
+    const badRatio = badFrames / totalFrames;
+    const triggerAlert = badRatio >= POSTURE_ALERT_THRESHOLD;
 
-      const totalFrames = Math.max(1, postureData.length);
-      const badFrames = countBadFrames(postureData);
-      const badRatio = badFrames / totalFrames;
-      const triggerAlert = badRatio >= 0.5;
-
-      const sessionRef = await addDoc(
-        getUserSubcollection(uid, POSTURE_SESSIONS_SUBCOLLECTION),
-        {
-          frequency,
-          timestampStart: toTimestamp(options?.timestampStart),
-          timestampEnd: toTimestamp(options?.timestampEnd),
-          postureData,
-          totalFrames,
-          badFrames,
-          badRatio,
-          triggerAlert,
-          processed: options?.processed ?? false,
-          device: options?.device ?? "local_webcam",
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-        }
-      );
-
-      await recalculateAnalytics(uid, frequency, previousAnalytics);
-
-      return {
-        sessionId: sessionRef.id,
-        triggerAlert,
+    const sessionRef = await addDoc(
+      getUserSubcollection(uid, POSTURE_SESSIONS_SUBCOLLECTION),
+      {
+        frequency,
+        timestampStart: toTimestamp(sessionData.timestampStart),
+        timestampEnd: toTimestamp(sessionData.timestampEnd),
+        postureData: sessionData.postureData,
+        totalFrames,
+        badFrames,
         badRatio,
-      };
-    } catch (error) {
-      console.error("Error logging posture session:", error);
-      throw error;
-    }
+        triggerAlert,
+        processed: sessionData.processed ?? false,
+        device: sessionData.device ?? "local_webcam",
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      }
+    );
+
+    await recalcAnalyticsInternal(uid, previousAnalytics);
+
+    return {
+      sessionId: sessionRef.id,
+      triggerAlert,
+      badRatio,
+    };
   },
 
-  async getUserPostureSessions(
-    uid: string,
-    take: number = 20
-  ): Promise<IPostureSession[]> {
-    try {
-      const sessionsSnapshot = await getDocs(
-        query(
-          getUserSubcollection(uid, POSTURE_SESSIONS_SUBCOLLECTION),
-          orderBy("timestampEnd", "desc"),
-          limit(take)
-        )
-      );
+  async getUserPostureSessions(uid: string, take: number = 20): Promise<PostureSession[]> {
+    const sessionsSnapshot = await getDocs(
+      query(
+        getUserSubcollection(uid, POSTURE_SESSIONS_SUBCOLLECTION),
+        orderBy("timestampEnd", "desc"),
+        limit(take)
+      )
+    );
 
-      return sessionsSnapshot.docs.map((sessionDoc) => ({
-        id: sessionDoc.id,
-        ...(sessionDoc.data() as IPostureSession),
-      }));
-    } catch (error) {
-      console.error("Error getting posture sessions:", error);
-      throw error;
-    }
+    return sessionsSnapshot.docs.map((sessionDoc) => ({
+      id: sessionDoc.id,
+      ...(sessionDoc.data() as PostureSession),
+    }));
   },
 
-  // RSI sessions
   async logRSISession(
     uid: string,
-    sessionData: Omit<IRSISession, "id" | "timestampStart"> & {
+    sessionData: Omit<RSISession, "id" | "timestampStart" | "processed" | "createdAt" | "updatedAt"> & {
       timestampStart?: TimestampInput;
+      processed?: boolean;
     }
   ): Promise<string> {
-    try {
-      const sessionRef = await addDoc(
-        getUserSubcollection(uid, RSI_SESSIONS_SUBCOLLECTION),
-        {
-          ...sessionData,
-          timestampStart: toTimestamp(sessionData.timestampStart),
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-        }
-      );
-      return sessionRef.id;
-    } catch (error) {
-      console.error("Error logging RSI session:", error);
-      throw error;
-    }
+    const sessionRef = await addDoc(
+      getUserSubcollection(uid, RSI_SESSIONS_SUBCOLLECTION),
+      {
+        ...sessionData,
+        timestampStart: toTimestamp(sessionData.timestampStart),
+        processed: sessionData.processed ?? false,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      }
+    );
+
+    await recalcAnalyticsInternal(uid);
+
+    return sessionRef.id;
   },
 
-  async getUserRSISessions(uid: string): Promise<IRSISession[]> {
-    try {
-      const sessionsSnapshot = await getDocs(
-        query(
-          getUserSubcollection(uid, RSI_SESSIONS_SUBCOLLECTION),
-          orderBy("timestampStart", "desc"),
-          limit(20)
-        )
-      );
+  async getUserRSISessions(uid: string, take: number = 20): Promise<RSISession[]> {
+    const sessionsSnapshot = await getDocs(
+      query(
+        getUserSubcollection(uid, RSI_SESSIONS_SUBCOLLECTION),
+        orderBy("timestampStart", "desc"),
+        limit(take)
+      )
+    );
 
-      return sessionsSnapshot.docs.map((sessionDoc) => ({
-        id: sessionDoc.id,
-        ...(sessionDoc.data() as IRSISession),
-      }));
-    } catch (error) {
-      console.error("Error getting RSI sessions:", error);
-      throw error;
+    return sessionsSnapshot.docs.map((sessionDoc) => ({
+      id: sessionDoc.id,
+      ...(sessionDoc.data() as RSISession),
+    }));
+  },
+
+  async logEyeStrainSession(
+    uid: string,
+    sessionData: Omit<EyeStrainSession, "id" | "timestampStart" | "processed" | "createdAt" | "updatedAt"> & {
+      timestampStart?: TimestampInput;
+      processed?: boolean;
     }
+  ): Promise<string> {
+    const sessionRef = await addDoc(
+      getUserSubcollection(uid, EYE_STRAIN_SESSIONS_SUBCOLLECTION),
+      {
+        ...sessionData,
+        timestampStart: toTimestamp(sessionData.timestampStart),
+        processed: sessionData.processed ?? false,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      }
+    );
+
+    await recalcAnalyticsInternal(uid);
+
+    return sessionRef.id;
+  },
+
+  async getUserEyeStrainSessions(uid: string, take: number = 20): Promise<EyeStrainSession[]> {
+    const sessionsSnapshot = await getDocs(
+      query(
+        getUserSubcollection(uid, EYE_STRAIN_SESSIONS_SUBCOLLECTION),
+        orderBy("timestampStart", "desc"),
+        limit(take)
+      )
+    );
+
+    return sessionsSnapshot.docs.map((sessionDoc) => ({
+      id: sessionDoc.id,
+      ...(sessionDoc.data() as EyeStrainSession),
+    }));
+  },
+
+  async registerDevice(
+    uid: string,
+    deviceId: string,
+    metadata: Omit<DeviceMetadata, "id">
+  ): Promise<void> {
+    await setDoc(
+      doc(getUserSubcollection(uid, DEVICES_SUBCOLLECTION), deviceId),
+      {
+        ...metadata,
+        lastSeen: toTimestamp(metadata.lastSeen),
+      },
+      { merge: true }
+    );
+  },
+
+  async recalculateAnalytics(uid: string): Promise<void> {
+    await recalcAnalyticsInternal(uid);
   },
 };

@@ -6,20 +6,20 @@ import { CheckCircle2 } from "lucide-react";
 
 const highlights = [
   {
-    title: "Posture monitoring",
-    description: "Live skeletal tracking flags slouching before discomfort hits.",
+    title: "Neck + head analytics",
+    description: "Calibrate once to unlock neck-drop %, head roll deltas, and shoulder symmetry cards.",
   },
   {
-    title: "Wrist tracking",
-    description: "Surface-level sensors watch for repetitive strain patterns.",
+    title: "Eye strain radar",
+    description: "EAR, blinks/min, and break timers visualize how your eyes are coping during deep work.",
   },
   {
-    title: "Ergonomic reminders",
-    description: "Micro-break nudges and seating tips keep you aligned all day.",
+    title: "RSI wristband pathway",
+    description: "Prototype BioAmp EXG Pill feed for typists today, consumer wristband integration next.",
   },
   {
-    title: "Progress analytics",
-    description: "Digestible weekly reports visualize wins across every metric.",
+    title: "Local deployment",
+    description: "Ship the same CV logic used by our Python script directly in the browser — no backend servers.",
   },
 ];
 
