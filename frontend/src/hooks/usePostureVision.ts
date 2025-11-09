@@ -18,7 +18,7 @@ import {
   mean,
 } from "@/utils/postureMath";
 
-export type PostureLevel = "info" | "ok" | "alert";
+export type PostureLevel = "info" | "ok" | "warn" | "alert";
 
 export interface NeckPostureMetrics {
   calibrated: boolean;
@@ -51,8 +51,11 @@ const EAR_THRESHOLD = 0.23;
 const STRAIN_TIME_THRESHOLD = 20 * 60;
 const UPDATE_THROTTLE_MS = 250;
 const NECK_DROP_LIMIT = 0.1;
+const NECK_DROP_WARNING = 0.05;  // Warning when neck drop is between 0.05 and 0.1
 const SIDE_TILT_THRESHOLD = 5;
+const SIDE_TILT_WARNING = 3;     // Warning when shoulder tilt is between 3 and 5
 const HEAD_TILT_THRESHOLD = 8;
+const HEAD_TILT_WARNING = 5;     // Warning when head tilt is between 5 and 8
 const ALERT_COOLDOWN = 5000;
 const POSTURE_SAMPLE_INTERVAL_MS = 1000;
 const POSTURE_SAMPLE_FREQUENCY_SEC = POSTURE_SAMPLE_INTERVAL_MS / 1000;
@@ -543,7 +546,12 @@ export function usePostureVision() {
       // // Draw status and metrics (like HTML)
       let yOffset = 120;
       if (metrics.calibrated) {
-        const statusColor = metrics.level === 'alert' ? '#FF0000' : '#00FF00';
+        let statusColor = '#00FF00'; // Default to green for OK
+        if (metrics.level === 'alert') {
+          statusColor = '#FF0000'; // Red for alert
+        } else if (metrics.level === 'warn') {
+          statusColor = '#FFA500'; // Orange for warning
+        }
         ctx.fillStyle = statusColor;
         ctx.font = 'bold 50px Arial';
         ctx.fillText(metrics.status, 20, yOffset);
@@ -736,34 +744,60 @@ export function usePostureVision() {
       const neckDropPercent = neckDropRatio * 100;
 
       const alerts: string[] = [];
-      const badNeck = neckDropRatio > NECK_DROP_LIMIT;
-      const badTilt =
-        Math.abs(shoulderTilt - baseline.shoulderTilt) > SIDE_TILT_THRESHOLD;
-      const badHead =
-        Math.abs(headRoll - baseline.headRoll) > HEAD_TILT_THRESHOLD;
+      const warnings: string[] = [];
+      
+      const neckDropDiff = neckDropRatio;
+      const shoulderTiltDiff = Math.abs(shoulderTilt - baseline.shoulderTilt);
+      const headTiltDiff = Math.abs(headRoll - baseline.headRoll);
 
       // Debug logging
       console.log('Posture Check:', {
         neckDropRatio: neckDropRatio.toFixed(3),
         neckDropLimit: NECK_DROP_LIMIT,
-        badNeck,
-        shoulderTiltDiff: Math.abs(shoulderTilt - baseline.shoulderTilt).toFixed(2),
+        neckDropWarning: NECK_DROP_WARNING,
+        badNeck: neckDropDiff > NECK_DROP_LIMIT,
+        warnNeck: neckDropDiff > NECK_DROP_WARNING && neckDropDiff <= NECK_DROP_LIMIT,
+        shoulderTiltDiff: shoulderTiltDiff.toFixed(2),
         tiltThreshold: SIDE_TILT_THRESHOLD,
-        badTilt,
-        headTiltDiff: Math.abs(headRoll - baseline.headRoll).toFixed(2),
+        tiltWarning: SIDE_TILT_WARNING,
+        badTilt: shoulderTiltDiff > SIDE_TILT_THRESHOLD,
+        warnTilt: shoulderTiltDiff > SIDE_TILT_WARNING && shoulderTiltDiff <= SIDE_TILT_THRESHOLD,
+        headTiltDiff: headTiltDiff.toFixed(2),
         headThreshold: HEAD_TILT_THRESHOLD,
-        badHead
+        headWarning: HEAD_TILT_WARNING,
+        badHead: headTiltDiff > HEAD_TILT_THRESHOLD,
+        warnHead: headTiltDiff > HEAD_TILT_WARNING && headTiltDiff <= HEAD_TILT_THRESHOLD
       });
 
+      // Check for bad posture (alert state)
+      const badNeck = neckDropDiff > NECK_DROP_LIMIT;
+      const badTilt = shoulderTiltDiff > SIDE_TILT_THRESHOLD;
+      const badHead = headTiltDiff > HEAD_TILT_THRESHOLD;
+
+      // Check for warnings (warn state)
+      const warnNeck = neckDropDiff > NECK_DROP_WARNING && neckDropDiff <= NECK_DROP_LIMIT;
+      const warnTilt = shoulderTiltDiff > SIDE_TILT_WARNING && shoulderTiltDiff <= SIDE_TILT_THRESHOLD;
+      const warnHead = headTiltDiff > HEAD_TILT_WARNING && headTiltDiff <= HEAD_TILT_THRESHOLD;
+
       if (badNeck) alerts.push("Neck leaning forward");
+      else if (warnNeck) warnings.push("Neck slightly dropped");
+
       if (badTilt) alerts.push("Shoulders uneven");
+      else if (warnTilt) warnings.push("Shoulders slightly tilted");
+
       if (badHead) alerts.push("Head tilt detected");
+      else if (warnHead) warnings.push("Head slightly tilted");
 
+      // Combine warnings and alerts for display
+      const allMessages = [...alerts, ...warnings];
+      
       const hasAlerts = alerts.length > 0;
-      const status = hasAlerts ? "POOR POSTURE" : "Good Posture";
-      const level: PostureLevel = hasAlerts ? "alert" : "ok";
+      const hasWarnings = !hasAlerts && warnings.length > 0; // Only show warning if no alerts
 
-      // Play alert sound if poor posture detected
+      const status = hasAlerts ? "POOR POSTURE" : hasWarnings ? "POSTURE WARNING" : "Good Posture";
+      const level: PostureLevel = hasAlerts ? "alert" : hasWarnings ? "warn" : "ok";
+
+      // Play alert sound only if poor posture (alert) detected, not for warnings
       if (hasAlerts) {
         const now = Date.now();
         if (now - lastAlertRef.current > ALERT_COOLDOWN) {
@@ -783,7 +817,7 @@ export function usePostureVision() {
           (shoulderTilt - baseline.shoulderTilt).toFixed(1)
         ),
         headTiltDeg: Number((headRoll - baseline.headRoll).toFixed(1)),
-        alerts: hasAlerts ? alerts : ["Maintain upright posture"],
+        alerts: allMessages.length > 0 ? allMessages : ["Maintain upright posture"],
       };
 
       const now = performance.now();
@@ -997,6 +1031,9 @@ export function usePostureVision() {
   const statusBadge = useMemo(() => {
     if (postureMetrics.level === "alert") {
       return { label: "POOR POSTURE", color: "text-red-500" };
+    }
+    if (postureMetrics.level === "warn") {
+      return { label: "POSTURE WARNING", color: "text-amber-500" };
     }
     if (postureMetrics.level === "ok") {
       return { label: "Good Posture", color: "text-emerald-500" };
