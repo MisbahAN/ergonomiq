@@ -4,7 +4,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Camera, Mail, Bell, CheckCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuthStore } from "@/hooks/useAuthStore";
@@ -499,44 +498,35 @@ export default function Profile() {
                 Notification Frequency
               </h3>
 
-              <RadioGroup
-                value={String(notificationFrequency)}
-                onValueChange={handleNotificationFrequencyChange}
-              >
-                <div className="space-y-3">
-                  {NOTIFICATION_FREQUENCY_OPTIONS.map((option) => {
-                    const isActive = notificationFrequency === option.value;
-                    return (
-                      <div
-                        key={option.value}
-                        className={`flex items-center space-x-3 p-3 rounded-2xl glass-strong border transition-all ${
-                          isActive
-                            ? "border-primary/70 bg-primary/5 shadow-[0_0_25px_rgba(34,211,238,0.35)]"
-                            : "border-border/50 hover:border-primary/40"
-                        }`}
-                      >
-                        <RadioGroupItem value={String(option.value)} id={`freq-${option.value}`} />
-                        <Label htmlFor={`freq-${option.value}`} className="cursor-pointer flex-1">
-                          <p className="font-medium">{option.label}</p>
-                        </Label>
-                      </div>
-                    );
-                  })}
-                </div>
-              </RadioGroup>
+              <div className="space-y-3">
+                <Label htmlFor="notification-frequency" className="text-sm font-medium">
+                  How often should we check in?
+                </Label>
+                <Select
+                  value={String(notificationFrequency)}
+                  onValueChange={handleNotificationFrequencyChange}
+                >
+                  <SelectTrigger
+                    id="notification-frequency"
+                    className="glass-strong border-border/50 focus:border-primary"
+                  >
+                    <SelectValue placeholder="Select reminder cadence" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-background border-border">
+                    {NOTIFICATION_FREQUENCY_OPTIONS.map((option) => (
+                      <SelectItem key={option.value} value={String(option.value)}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
               <p className="mt-4 text-xs text-muted-foreground leading-relaxed glass-strong rounded-xl p-3 border border-border/50">
                 A posture alert will be sent if over 50% of your selected interval is detected as poor posture.
               </p>
             </div>
           </div>
-        </div>
-
-        {/* Coming Soon Banner */}
-        <div className="glass rounded-2xl px-6 py-4 mb-8 border border-primary/20 bg-primary/5">
-          <p className="text-sm text-center text-foreground/80">
-            💡 Slack & Discord integrations coming soon — email reminders available for the Nathacks 2025 demo.
-          </p>
         </div>
 
         {/* Footer - moved to AuthenticatedLayout */}

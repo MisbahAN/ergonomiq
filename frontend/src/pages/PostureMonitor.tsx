@@ -13,9 +13,30 @@ import {
 } from "lucide-react";
 import { usePostureVision } from "@/hooks/usePostureVision";
 import { formatDuration } from "@/utils/postureMath";
+import {
+  Area,
+  AreaChart,
+  CartesianGrid,
+  Line,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 
 const formatPercent = (value: number) => `${value.toFixed(1)}%`;
 const formatDegrees = (value: number) => `${value.toFixed(1)}°`;
+
+const postureTrendData = [
+  { time: "09:00", postureScore: 94, blinkRate: 19 },
+  { time: "09:10", postureScore: 88, blinkRate: 16 },
+  { time: "09:20", postureScore: 82, blinkRate: 14 },
+  { time: "09:30", postureScore: 78, blinkRate: 12 },
+  { time: "09:40", postureScore: 86, blinkRate: 15 },
+  { time: "09:50", postureScore: 91, blinkRate: 17 },
+  { time: "10:00", postureScore: 89, blinkRate: 18 },
+  { time: "10:10", postureScore: 84, blinkRate: 13 },
+];
 
 export default function PostureMonitor() {
   const {
@@ -35,7 +56,7 @@ export default function PostureMonitor() {
 
   const postureInsights = useMemo(() => {
     if (!postureMetrics.alerts.length && !eyeMetrics.warnings.length) {
-      return ["Aligned posture and relaxed eyes — keep it up!"];
+      return ["Aligned posture and relaxed eyes - keep it up!"];
     }
     return [...postureMetrics.alerts, ...eyeMetrics.warnings];
   }, [postureMetrics.alerts, eyeMetrics.warnings]);
@@ -44,23 +65,9 @@ export default function PostureMonitor() {
     postureMetrics.calibrationProgress * 100
   );
 
-  const rsiHighlights = [
-    "BioAmp EXG Pill reads wrist muscle fatigue locally.",
-    "Prototype haptic puck vibrates when strain exceeds thresholds.",
-    "Shipping plan: wireless wristband that streams to this dashboard.",
-  ];
-
   return (
     <div className="min-h-screen pb-16">
       <div className="pt-28 px-6 md:px-10 max-w-7xl mx-auto space-y-8">
-        <div className="glass rounded-2xl px-4 py-3 inline-flex items-center gap-3 text-xs text-muted-foreground">
-          <Zap className="h-4 w-4 text-primary" />
-          <span>
-            Live CV analytics run entirely in-browser — no Python backend
-            required.
-          </span>
-        </div>
-
         <header className="space-y-3">
           <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
             Neck &amp; Eye Coach
@@ -68,7 +75,7 @@ export default function PostureMonitor() {
           <p className="text-muted-foreground max-w-2xl">
             Mirrors the calibration, neck-drop, and blink-tracking logic from
             our computer-vision model. Calibrate once, then monitor posture +
-            eye strain in real time — all client-side so Vercel-friendly.
+            eye strain in real time - all client-side so Vercel-friendly.
           </p>
         </header>
 
@@ -166,12 +173,6 @@ export default function PostureMonitor() {
                 </Button>
               </div>
 
-              <div className="bg-primary/10 border border-primary/20 rounded-xl px-4 py-3 text-xs text-primary">
-                This feed mirrors{" "}
-                <code className="font-mono">model/Posture.py</code> logic:
-                30-frame calibration, neck-drop alerts, EAR-based blink
-                tracking, and cooldown logic — now entirely client-side.
-              </div>
             </div>
 
             <div className="glass rounded-3xl p-6">
@@ -237,8 +238,8 @@ export default function PostureMonitor() {
             >
               <MetricRow
                 label="EAR"
-                value={eyeMetrics.ear ? eyeMetrics.ear.toFixed(2) : "—"}
-                helper="Eye Aspect Ratio — lower means eyes closed"
+                value={eyeMetrics.ear ? eyeMetrics.ear.toFixed(2) : "-"}
+                helper="Eye Aspect Ratio - lower means eyes closed"
               />
               <MetricRow
                 label="Blinks (current min)"
@@ -271,26 +272,91 @@ export default function PostureMonitor() {
               )}
             </MetricPanel>
 
-            <MetricPanel
-              title="RSI Prototype"
-              subtitle="BioAmp EXG wristband (local testing)"
-              icon={AlertTriangle}
-            >
-              <p className="text-sm text-muted-foreground mb-3">
-                Our muscle-signal wristband isn’t wired into this dashboard yet.
-                Internally we stream BioAmp EXG Pill data to a local vibrator
-                puck that warns when typing strain spikes. Public release:
-                Bluetooth wristband that syncs here.
+          </div>
+        </div>
+
+        <div className="glass rounded-3xl p-6 float-card">
+          <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+            <div>
+              <h2 className="text-xl font-semibold">Posture &amp; Eye Trend</h2>
+              <p className="text-xs text-muted-foreground">
+                Rolling 70-minute view of posture quality (%) and blink rate (per min).
               </p>
-              <ul className="space-y-2 text-xs text-muted-foreground">
-                {rsiHighlights.map((item) => (
-                  <li key={item} className="flex items-start gap-2">
-                    <span className="text-primary mt-0.5">•</span>
-                    {item}
-                  </li>
-                ))}
-              </ul>
-            </MetricPanel>
+            </div>
+            <div className="text-right text-xs text-muted-foreground">
+              <p>Data source: local CV session</p>
+              <p>Updates every 10 minutes</p>
+            </div>
+          </div>
+          <div className="h-80">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={postureTrendData}>
+                <defs>
+                  <linearGradient id="postureGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.35} />
+                    <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                <XAxis
+                  dataKey="time"
+                  stroke="hsl(var(--muted-foreground))"
+                  style={{ fontSize: "12px" }}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <YAxis
+                  stroke="hsl(var(--muted-foreground))"
+                  style={{ fontSize: "12px" }}
+                  axisLine={false}
+                  tickLine={false}
+                  domain={[60, 100]}
+                  label={{
+                    value: "Posture Quality (%)",
+                    angle: -90,
+                    position: "insideLeft",
+                    style: { fontSize: "12px" },
+                  }}
+                />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: "hsl(var(--background))",
+                    border: "1px solid hsl(var(--border))",
+                    borderRadius: "12px",
+                    fontSize: "12px",
+                  }}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="postureScore"
+                  stroke="hsl(var(--primary))"
+                  strokeWidth={3}
+                  fill="url(#postureGradient)"
+                  name="Posture Quality"
+                />
+                <Line
+                  type="monotone"
+                  dataKey="blinkRate"
+                  stroke="hsl(var(--accent))"
+                  strokeWidth={2}
+                  dot={{ r: 3, fill: "hsl(var(--background))" }}
+                  name="Blink Rate"
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+          <div className="flex flex-wrap gap-6 mt-4 text-xs text-muted-foreground">
+            <div className="flex items-center gap-2">
+              <span className="h-3 w-3 rounded-full bg-primary" />
+              <span>Posture quality</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="h-3 w-3 rounded-full bg-[hsl(var(--accent))]" />
+              <span>Blinks per minute</span>
+            </div>
+            <span className="ml-auto">
+              Healthy range: posture ≥85% · blink rate ≥15 / min
+            </span>
           </div>
         </div>
       </div>

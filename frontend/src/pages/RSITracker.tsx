@@ -34,6 +34,12 @@ const mockDataMonth = [
   { time: 'Week 4', activity: 55 },
 ];
 
+const rsiPrototypeHighlights = [
+  "BioAmp EXG Pill reads wrist muscle fatigue locally.",
+  "Prototype haptic puck vibrates when strain exceeds thresholds.",
+  "Shipping plan: wireless wristband that streams to this dashboard.",
+];
+
 export default function RSITracker() {
   const [isSessionActive, setIsSessionActive] = useState(false);
   const [activeTab, setActiveTab] = useState<'Today' | 'Week' | 'Month'>('Today');
@@ -74,23 +80,16 @@ export default function RSITracker() {
         {/* Device notice banner */}
         <div className="glass rounded-2xl px-4 py-3 mb-4 border border-primary/20 bg-primary/5">
           <p className="text-xs text-foreground/80 text-center">
-            🔌 RSI wristband device coming soon — for now, connect BioAmp locally via USB.
+            🔌 Wristband data coming soon - for now, connect BioAmp locally via USB.
           </p>
         </div>
 
-        {/* Header with hardware badge */}
-        <div className="flex items-start justify-between mb-6">
-          <div>
-            <h1 className="text-4xl font-bold mb-2 bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-              Your Wrist Health Overview
-            </h1>
-            <p className="text-muted-foreground">Real-time and historical RSI insights powered by EMG data.</p>
-          </div>
-          <div className="glass rounded-xl px-4 py-2 border border-primary/20">
-            <p className="text-xs text-muted-foreground">Hardware:</p>
-            <p className="text-sm font-semibold text-primary">BioAmp EXG pill</p>
-            <p className="text-xs text-muted-foreground">(Local Mode)</p>
-          </div>
+        {/* Header */}
+        <div className="mb-6">
+          <h1 className="text-4xl font-bold mb-2 bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+            Your Wrist Health Overview
+          </h1>
+          <p className="text-muted-foreground">Real-time and historical wrist-strain insights powered by EMG data.</p>
         </div>
 
         {/* Session Control */}
@@ -206,7 +205,7 @@ export default function RSITracker() {
             <div>
               <h2 className="text-xl font-semibold mb-1">Wrist Strain / EMG Activity Over Time</h2>
               <p className="text-xs text-muted-foreground">
-                Live RSI monitoring prototype — cloud sync coming soon.
+                Live wrist-strain monitoring prototype - cloud sync coming soon.
               </p>
             </div>
             <div className="flex gap-2">
@@ -299,6 +298,30 @@ export default function RSITracker() {
               <span className="text-xs text-muted-foreground">Muscle Activity Level</span>
             </div>
           </div>
+        </div>
+
+        {/* Wristband Prototype Card */}
+        <div className="glass rounded-2xl p-6 float-card mb-8">
+          <div className="flex items-center gap-3 mb-3">
+            <span className="text-lg">⚙️</span>
+            <div>
+              <h3 className="text-lg font-semibold">Wristband Prototype</h3>
+              <p className="text-xs text-muted-foreground">BioAmp EXG wristband (local testing)</p>
+            </div>
+          </div>
+          <p className="text-sm text-muted-foreground mb-4">
+            Our muscle-signal wristband isn’t wired into this dashboard yet. Internally we stream BioAmp
+            EXG Pill data to a local vibrator puck that warns when typing strain spikes. Public release:
+            Bluetooth wristband that syncs here.
+          </p>
+          <ul className="space-y-2 text-xs text-muted-foreground">
+            {rsiPrototypeHighlights.map((item) => (
+              <li key={item} className="flex items-start gap-2">
+                <span className="text-primary mt-0.5">•</span>
+                {item}
+              </li>
+            ))}
+          </ul>
         </div>
 
         {/* Tips & Exercises Section */}
