@@ -4,16 +4,15 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useAuthStore } from "@/hooks/useAuthStore";
 
-// Mock data - keeping same data structure
 const weeklyData = [
-  { week: '06/07', posture: 250, rsi: 50 },
-  { week: '07/07', posture: 280, rsi: 60 },
-  { week: '08/07', posture: 270, rsi: 55 },
-  { week: '09/07', posture: 300, rsi: 65 },
-  { week: '10/07', posture: 180, rsi: 40 },
-  { week: '11/07', posture: 450, rsi: 80 },
-  { week: '12/07', posture: 350, rsi: 70 },
-  { week: '13/07', posture: 200, rsi: 45 },
+  { week: '06/07', posture: 92, blinkRate: 18 },
+  { week: '07/07', posture: 88, blinkRate: 16 },
+  { week: '08/07', posture: 86, blinkRate: 15 },
+  { week: '09/07', posture: 90, blinkRate: 17 },
+  { week: '10/07', posture: 82, blinkRate: 13 },
+  { week: '11/07', posture: 95, blinkRate: 19 },
+  { week: '12/07', posture: 89, blinkRate: 16 },
+  { week: '13/07', posture: 91, blinkRate: 18 },
 ];
 
 export default function Dashboard() {
@@ -82,21 +81,21 @@ export default function Dashboard() {
               <p className="text-xs text-muted-foreground">ACTIVE TODAY</p>
             </div>
 
-            {/* RSI Risk Card */}
+            {/* Eye Strain Risk Card */}
             <div className="glass rounded-2xl p-6 hover:shadow-lg transition-all">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
                   <span className="text-primary text-xs">●</span>
-                  <h3 className="text-xs font-semibold text-foreground/70">RSI RISK</h3>
+                  <h3 className="text-xs font-semibold text-foreground/70">EYE STRAIN RISK</h3>
                 </div>
               </div>
               <div className="flex items-center gap-3 mb-2">
                 <span className="text-5xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">LOW</span>
                 <div className="px-3 py-1 bg-primary/20 border border-primary rounded text-xs text-primary">
-                  4 WEEKS ●
+                  15 BLINKS/MIN ●
                 </div>
               </div>
-              <p className="text-xs text-muted-foreground">MAINTAINING GOOD HABITS</p>
+              <p className="text-xs text-muted-foreground">Blink cadence within the healthy range</p>
             </div>
           </div>
 
@@ -141,11 +140,11 @@ export default function Dashboard() {
               <div className="flex items-center gap-6 text-xs">
                 <div className="flex items-center gap-2">
                   <div className="h-2 w-2 rounded-full bg-emerald-500" />
-                  <span className="text-muted-foreground">POSTURE</span>
+                  <span className="text-muted-foreground">POSTURE %</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="h-2 w-2 rounded-full bg-primary" />
-                  <span className="text-muted-foreground">RSI</span>
+                  <span className="text-muted-foreground">BLINKS/MIN</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="h-2 w-2 rounded-full bg-amber-500" />
@@ -169,9 +168,9 @@ export default function Dashboard() {
                     style={{ fontSize: '12px' }}
                     axisLine={false}
                     tickLine={false}
-                    domain={[0, 500]}
-                    ticks={[0, 100, 200, 300, 400, 500]}
-                    tickFormatter={(value) => `${value}K`}
+                    domain={[0, 120]}
+                    ticks={[0, 20, 40, 60, 80, 100, 120]}
+                    tickFormatter={(value) => `${value}%`}
                   />
                   <Tooltip 
                     contentStyle={{
@@ -186,15 +185,15 @@ export default function Dashboard() {
                     dataKey="posture" 
                     stroke="#10b981" 
                     strokeWidth={3}
-                    name="Posture"
+                    name="Posture Quality"
                     dot={false}
                   />
                   <Line 
                     type="monotone" 
-                    dataKey="rsi" 
+                    dataKey="blinkRate" 
                     stroke="hsl(var(--primary))" 
                     strokeWidth={3}
-                    name="RSI"
+                    name="Blink Rate"
                     dot={false}
                   />
                 </LineChart>

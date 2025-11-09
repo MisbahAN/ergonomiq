@@ -54,6 +54,8 @@ const NECK_DROP_LIMIT = 0.1;
 const SIDE_TILT_THRESHOLD = 5;
 const HEAD_TILT_THRESHOLD = 8;
 const ALERT_COOLDOWN = 5000;
+const POSTURE_SAMPLE_INTERVAL_MS = 1000;
+const POSTURE_SAMPLE_FREQUENCY_SEC = POSTURE_SAMPLE_INTERVAL_MS / 1000;
 
 type Baseline = {
   shoulderAngle: number;
@@ -79,6 +81,82 @@ type EyeProcessingState = {
   closureEvents: number;
   lastBlinkTimestamp: number;
 };
+
+export interface PostureSessionSnapshot {
+  timestampStart: Date;
+  timestampEnd: Date;
+  postureData: string;
+  totalFrames: number;
+  badFrames: number;
+  frequency: number;
+  device: string;
+}
+
+export interface EyeSessionSnapshot {
+  timestampStart: Date;
+  duration: number;
+  device: string;
+  avgBlinkRate: number;
+  totalBlinks: number;
+  avgEAR: number;
+  eyeClosureEvents: number;
+  strainAlerts: number;
+  lowBlinkRateAlerts: number;
+  takeBreakAlerts: number;
+  eyesStrainedAlerts: number;
+  maxSessionTimeWithoutBreak: number;
+}
+
+export interface SessionUploadPayload {
+  postureSession?: PostureSessionSnapshot | null;
+  eyeSession?: EyeSessionSnapshot | null;
+}
+
+type SessionBuffers = {
+  posture: {
+    frames: ("0" | "1")[];
+    badFrames: number;
+    lastSampleTimestamp: number;
+  };
+  eye: {
+    earSamplesSum: number;
+    earSamplesCount: number;
+    lowBlinkAlerts: number;
+    takeBreakAlerts: number;
+    eyesStrainedAlerts: number;
+    strainAlerts: number;
+    warningState: {
+      lowBlink: boolean;
+      takeBreak: boolean;
+      eyesStrained: boolean;
+    };
+    lastBreakAlertTimestamp: number | null;
+    maxTimeWithoutBreak: number;
+  };
+};
+
+const createSessionBuffers = (): SessionBuffers => ({
+  posture: {
+    frames: [],
+    badFrames: 0,
+    lastSampleTimestamp: 0,
+  },
+  eye: {
+    earSamplesSum: 0,
+    earSamplesCount: 0,
+    lowBlinkAlerts: 0,
+    takeBreakAlerts: 0,
+    eyesStrainedAlerts: 0,
+    strainAlerts: 0,
+    warningState: {
+      lowBlink: false,
+      takeBreak: false,
+      eyesStrained: false,
+    },
+    lastBreakAlertTimestamp: null,
+    maxTimeWithoutBreak: 0,
+  },
+});
 
 type FaceLandmarksPoints = FaceLandmarkerResult["faceLandmarks"] extends Array<
   infer T
@@ -138,6 +216,7 @@ export function usePostureVision() {
   const eyeProcessingRef = useRef<EyeProcessingState>(
     createEyeProcessingState()
   );
+  const sessionBuffersRef = useRef<SessionBuffers>(createSessionBuffers());
   const sessionStartRef = useRef<number | null>(null);
   const sessionActiveRef = useRef(false);
   const lastEmitRef = useRef(0);
@@ -151,6 +230,9 @@ export function usePostureVision() {
   });
   const [isModelLoading, setIsModelLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [sessionPayload, setSessionPayload] = useState<SessionUploadPayload | null>(
+    null
+  );
 
   const playAlertSound = useCallback(() => {
     try {
@@ -191,10 +273,15 @@ export function usePostureVision() {
     postureMetricsRef.current = initialPosture;
     eyeMetricsRef.current = initialEye;
     eyeProcessingRef.current = createEyeProcessingState();
+    sessionBuffersRef.current = createSessionBuffers();
     lastEmitRef.current = 0;
     lastAlertRef.current = 0;
     setPostureMetrics(initialPosture);
     setEyeMetrics(initialEye);
+  }, []);
+
+  const clearSessionPayload = useCallback(() => {
+    setSessionPayload(null);
   }, []);
 
   const updateSessionDuration = useCallback(() => {
@@ -266,7 +353,71 @@ export function usePostureVision() {
     }
   }, []);
 
+  const finalizeSessionPayload = useCallback((): SessionUploadPayload | null => {
+    if (!sessionStartRef.current) return null;
+    const sessionEnd = Date.now();
+    const sessionStart = sessionStartRef.current;
+    const durationSeconds = Math.max(0, Math.round((sessionEnd - sessionStart) / 1000));
+    const postureBuffer = sessionBuffersRef.current.posture;
+    const eyeBuffer = sessionBuffersRef.current.eye;
+    const postureFrames = postureBuffer.frames;
+    const totalFrames = postureFrames.length;
+    const postureSession = totalFrames
+      ? {
+          timestampStart: new Date(sessionStart),
+          timestampEnd: new Date(sessionEnd),
+          postureData: postureFrames.join(""),
+          totalFrames,
+          badFrames: postureBuffer.badFrames,
+          frequency: POSTURE_SAMPLE_FREQUENCY_SEC,
+          device: "local_webcam",
+        }
+      : null;
+
+    const processing = eyeProcessingRef.current;
+    const totalBlinks =
+      processing.blinkHistory.reduce((sum, val) => sum + val, 0) +
+      processing.blinkCountThisMinute;
+    const sessionMinutes = Math.max(1, durationSeconds / 60);
+    const avgBlinkRate = Number((totalBlinks / sessionMinutes).toFixed(2));
+    const avgEAR = eyeBuffer.earSamplesCount
+      ? Number((eyeBuffer.earSamplesSum / eyeBuffer.earSamplesCount).toFixed(3))
+      : 0;
+
+    if (durationSeconds > 0) {
+      const lastBreakAt = eyeBuffer.lastBreakAlertTimestamp ?? 0;
+      const tailGap = durationSeconds - lastBreakAt;
+      eyeBuffer.maxTimeWithoutBreak = Math.max(eyeBuffer.maxTimeWithoutBreak, tailGap);
+    }
+
+    const eyeSession =
+      durationSeconds > 0 && (totalBlinks > 0 || eyeBuffer.earSamplesCount > 0)
+        ? {
+            timestampStart: new Date(sessionStart),
+            duration: durationSeconds,
+            device: "webcam",
+            avgBlinkRate,
+            totalBlinks,
+            avgEAR,
+            eyeClosureEvents: processing.closureEvents,
+            strainAlerts: eyeBuffer.strainAlerts,
+            lowBlinkRateAlerts: eyeBuffer.lowBlinkAlerts,
+            takeBreakAlerts: eyeBuffer.takeBreakAlerts,
+            eyesStrainedAlerts: eyeBuffer.eyesStrainedAlerts,
+            maxSessionTimeWithoutBreak: Math.round(eyeBuffer.maxTimeWithoutBreak),
+          }
+        : null;
+
+    if (!postureSession && !eyeSession) {
+      return null;
+    }
+
+    return { postureSession, eyeSession };
+  }, []);
+
   const stopSession = useCallback(() => {
+    const wasActive = sessionActiveRef.current;
+    const payload = wasActive ? finalizeSessionPayload() : null;
     sessionActiveRef.current = false;
     stopDetectionLoop();
 
@@ -279,7 +430,10 @@ export function usePostureVision() {
     sessionStartRef.current = null;
     updateSessionDuration();
     resetStates();
-  }, [resetStates, stopDetectionLoop, updateSessionDuration]);
+    if (wasActive) {
+      setSessionPayload(payload ?? null);
+    }
+  }, [finalizeSessionPayload, resetStates, stopDetectionLoop, updateSessionDuration]);
 
   const drawPose = useCallback(
     (result: PoseLandmarkerResult, facePoints: FaceLandmarksPoints) => {
@@ -302,7 +456,6 @@ export function usePostureVision() {
       const eyes = eyeMetricsRef.current;
 
       // Process eye strain
-      let strainWarnings: string[] = [];
       if (facePoints) {
         const leftEye = FACE_EYE_INDICES.LEFT.map(idx => [
           facePoints[idx].x * width,
@@ -516,14 +669,17 @@ export function usePostureVision() {
         { x: rightShoulder.x, y: 0 }
       );
       const neckAngle = (neckAngleLeft + neckAngleRight) / 2;
-      const shoulderTilt = degreesFromSlope(
-        rightShoulder.y - leftShoulder.y,
-        rightShoulder.x - leftShoulder.x + 1e-6
-      );
-      const headRoll = degreesFromSlope(
-        rightEye.y - leftEye.y,
-        rightEye.x - leftEye.x + 1e-6
-      );
+
+ //use exact calculation from working HTML file
+      const shoulderTilt = Math.atan(
+        (rightShoulder.y - leftShoulder.y) / 
+        (rightShoulder.x - leftShoulder.x + 0.000001)
+      ) * (180 / Math.PI);
+      const headRoll = Math.atan(
+        (rightEye.y - leftEye.y) / 
+        (rightEye.x - leftEye.x + 0.000001)
+      ) * (180 / Math.PI);
+
       const earMidpointY = (leftEar.y + rightEar.y) / 2;
       const shoulderMidpointY = (leftShoulder.y + rightShoulder.y) / 2;
       const neckHeight = Math.abs(earMidpointY - shoulderMidpointY);
@@ -586,6 +742,19 @@ export function usePostureVision() {
       const badHead =
         Math.abs(headRoll - baseline.headRoll) > HEAD_TILT_THRESHOLD;
 
+      // Debug logging
+      console.log('Posture Check:', {
+        neckDropRatio: neckDropRatio.toFixed(3),
+        neckDropLimit: NECK_DROP_LIMIT,
+        badNeck,
+        shoulderTiltDiff: Math.abs(shoulderTilt - baseline.shoulderTilt).toFixed(2),
+        tiltThreshold: SIDE_TILT_THRESHOLD,
+        badTilt,
+        headTiltDiff: Math.abs(headRoll - baseline.headRoll).toFixed(2),
+        headThreshold: HEAD_TILT_THRESHOLD,
+        badHead
+      });
+
       if (badNeck) alerts.push("Neck leaning forward");
       if (badTilt) alerts.push("Shoulders uneven");
       if (badHead) alerts.push("Head tilt detected");
@@ -616,6 +785,19 @@ export function usePostureVision() {
         headTiltDeg: Number((headRoll - baseline.headRoll).toFixed(1)),
         alerts: hasAlerts ? alerts : ["Maintain upright posture"],
       };
+
+      const now = performance.now();
+      const postureBuffer = sessionBuffersRef.current.posture;
+      if (
+        calibration.baseline &&
+        sessionActiveRef.current &&
+        now - postureBuffer.lastSampleTimestamp >= POSTURE_SAMPLE_INTERVAL_MS
+      ) {
+        const isBad = hasAlerts ? 1 : 0;
+        postureBuffer.frames.push(isBad ? "1" : "0");
+        postureBuffer.badFrames += isBad;
+        postureBuffer.lastSampleTimestamp = now;
+      }
       emitMetrics();
     },
     [emitMetrics, playAlertSound]
@@ -652,6 +834,11 @@ export function usePostureVision() {
       }
 
       const sessionSeconds = (Date.now() - sessionStartRef.current) / 1000;
+      const eyeBuffer = sessionBuffersRef.current.eye;
+      if (earValue !== null) {
+        eyeBuffer.earSamplesSum += earValue;
+        eyeBuffer.earSamplesCount += 1;
+      }
       const minuteElapsed = Math.floor(sessionSeconds / 60);
       if (minuteElapsed >= processing.currentMinuteIndex) {
         processing.blinkHistory.push(processing.blinkCountThisMinute);
@@ -675,6 +862,36 @@ export function usePostureVision() {
       if (processing.closureEvents > 50) {
         warnings.push("EYES STRAINED");
       }
+
+      const warningSet = new Set(warnings);
+      const hasLowBlink = warningSet.has("LOW BLINK RATE");
+      const hasTakeBreak = warningSet.has("TAKE A BREAK");
+      const hasEyesStrained = warningSet.has("EYES STRAINED");
+
+      if (hasLowBlink && !eyeBuffer.warningState.lowBlink) {
+        eyeBuffer.lowBlinkAlerts += 1;
+      }
+      if (!hasLowBlink) {
+        eyeBuffer.warningState.lowBlink = false;
+      } else {
+        eyeBuffer.warningState.lowBlink = true;
+      }
+
+      if (hasTakeBreak && !eyeBuffer.warningState.takeBreak) {
+        eyeBuffer.takeBreakAlerts += 1;
+        eyeBuffer.strainAlerts += 1;
+        const lastBreak = eyeBuffer.lastBreakAlertTimestamp ?? 0;
+        const gap = sessionSeconds - lastBreak;
+        eyeBuffer.maxTimeWithoutBreak = Math.max(eyeBuffer.maxTimeWithoutBreak, gap);
+        eyeBuffer.lastBreakAlertTimestamp = sessionSeconds;
+      }
+      eyeBuffer.warningState.takeBreak = hasTakeBreak;
+
+      if (hasEyesStrained && !eyeBuffer.warningState.eyesStrained) {
+        eyeBuffer.eyesStrainedAlerts += 1;
+        eyeBuffer.strainAlerts += 1;
+      }
+      eyeBuffer.warningState.eyesStrained = hasEyesStrained;
 
       eyeMetricsRef.current = {
         ear: earValue,
@@ -798,5 +1015,7 @@ export function usePostureVision() {
     isModelLoading,
     error,
     statusBadge,
+    sessionPayload,
+    clearSessionPayload,
   };
 }

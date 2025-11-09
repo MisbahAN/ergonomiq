@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import type { LucideIcon } from "lucide-react";
 import {
@@ -6,6 +6,7 @@ import {
   AlertTriangle,
   Camera,
   Eye,
+  Loader2,
   Play,
   Square,
   Watch,
@@ -13,6 +14,9 @@ import {
 } from "lucide-react";
 import { usePostureVision } from "@/hooks/usePostureVision";
 import { formatDuration } from "@/utils/postureMath";
+import { firestoreService } from "@/lib/firestoreService";
+import { useAuthStore } from "@/hooks/useAuthStore";
+import { useToast } from "@/hooks/use-toast";
 import {
   Area,
   AreaChart,
@@ -50,9 +54,105 @@ export default function PostureMonitor() {
     isModelLoading,
     error,
     statusBadge,
+    sessionPayload,
+    clearSessionPayload,
   } = usePostureVision();
+  const { user } = useAuthStore();
+  const { toast } = useToast();
+  const [isSyncingSession, setIsSyncingSession] = useState(false);
+  const [syncError, setSyncError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!sessionPayload) return;
+
+    let cancelled = false;
+
+    const syncSession = async () => {
+      if (!user) {
+        toast({
+          title: "Sign in to save sessions",
+          description: "Log in to keep your posture and eye analytics synced.",
+          variant: "destructive",
+        });
+        clearSessionPayload();
+        return;
+      }
+
+      setIsSyncingSession(true);
+      setSyncError(null);
+
+      try {
+        const tasks: Promise<unknown>[] = [];
+        if (sessionPayload.postureSession) {
+          const postureSession = sessionPayload.postureSession;
+          tasks.push(
+            firestoreService.logPostureSession(user.uid, {
+              postureData: postureSession.postureData,
+              frequency: postureSession.frequency,
+              timestampStart: postureSession.timestampStart,
+              timestampEnd: postureSession.timestampEnd,
+              device: postureSession.device,
+              processed: false,
+            })
+          );
+        }
+
+        if (sessionPayload.eyeSession) {
+          const eyeSession = sessionPayload.eyeSession;
+          tasks.push(
+            firestoreService.logEyeStrainSession(user.uid, {
+              timestampStart: eyeSession.timestampStart,
+              duration: eyeSession.duration,
+              device: eyeSession.device,
+              avgBlinkRate: eyeSession.avgBlinkRate,
+              totalBlinks: eyeSession.totalBlinks,
+              avgEAR: eyeSession.avgEAR,
+              eyeClosureEvents: eyeSession.eyeClosureEvents,
+              strainAlerts: eyeSession.strainAlerts,
+              lowBlinkRateAlerts: eyeSession.lowBlinkRateAlerts,
+              takeBreakAlerts: eyeSession.takeBreakAlerts,
+              eyesStrainedAlerts: eyeSession.eyesStrainedAlerts,
+              maxSessionTimeWithoutBreak: eyeSession.maxSessionTimeWithoutBreak,
+              processed: false,
+            })
+          );
+        }
+
+        await Promise.all(tasks);
+
+        if (!cancelled) {
+          toast({
+            title: "Session synced",
+            description: "Posture & eye metrics saved to your analytics feed.",
+          });
+        }
+      } catch (err) {
+        console.error("Failed to sync session", err);
+        if (!cancelled) {
+          setSyncError("Failed to sync this session. Try again from the dashboard.");
+          toast({
+            title: "Sync failed",
+            description: "We couldn't save your session. Check your connection and retry.",
+            variant: "destructive",
+          });
+        }
+      } finally {
+        if (!cancelled) {
+          setIsSyncingSession(false);
+          clearSessionPayload();
+        }
+      }
+    };
+
+    syncSession();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [sessionPayload, user, clearSessionPayload, toast]);
 
   const isSessionActive = sessionState.active;
+  const canStartSession = !isSessionActive && !isModelLoading && !isSyncingSession;
 
   const postureInsights = useMemo(() => {
     if (!postureMetrics.alerts.length && !eyeMetrics.warnings.length) {
@@ -156,11 +256,19 @@ export default function PostureMonitor() {
               <div className="flex flex-col sm:flex-row gap-3">
                 <Button
                   onClick={startSession}
-                  disabled={isSessionActive || isModelLoading}
+                  disabled={!canStartSession}
                   className="flex-1"
                 >
-                  <Play className="h-4 w-4 mr-2" />
-                  {isModelLoading ? "Preparing…" : "Start Session"}
+                  {isModelLoading ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Play className="h-4 w-4 mr-2" />
+                  )}
+                  {isModelLoading
+                    ? "Preparing…"
+                    : isSyncingSession
+                      ? "Syncing to Firebase…"
+                      : "Start Session"}
                 </Button>
                 <Button
                   onClick={stopSession}
@@ -172,6 +280,15 @@ export default function PostureMonitor() {
                   Stop Session
                 </Button>
               </div>
+
+              {isSyncingSession && (
+                <p className="text-xs text-muted-foreground text-center">
+                  Uploading posture & eye telemetry to Firebase…
+                </p>
+              )}
+              {syncError && (
+                <p className="text-xs text-destructive text-center">{syncError}</p>
+              )}
 
             </div>
 
