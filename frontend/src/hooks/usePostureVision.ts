@@ -452,6 +452,10 @@ export function usePostureVision() {
       ctx.clearRect(0, 0, width, height);
       ctx.save();
 
+      // Flip horizontally for mirror effect
+      ctx.translate(width, 0);
+      ctx.scale(-1, 1);
+      
       // Draw video first
       ctx.drawImage(video, 0, 0, width, height);
 
@@ -538,12 +542,16 @@ export function usePostureVision() {
         ctx.fillStyle = 'rgba(0, 255, 255, 0.7)';
         ctx.fillRect(0, height - 20, progress, 20);
         
+        ctx.save();
+        ctx.scale(-1, 1);
         ctx.fillStyle = 'rgba(0, 255, 255, 1)';
         ctx.font = 'bold 40px Arial';
-        ctx.fillText(`Calibrating ${Math.round(metrics.calibrationProgress * 30)}/30`, 20, 60);
+        ctx.fillText(`Calibrating ${Math.round(metrics.calibrationProgress * 30)}/30`, -width + 20, 60);
+        ctx.restore();
       }
 
       // // Draw status and metrics (like HTML)
+      // Draw status and metrics (like HTML)
       let yOffset = 120;
       if (metrics.calibrated) {
         let statusColor = '#00FF00'; // Default to green for OK
@@ -552,9 +560,12 @@ export function usePostureVision() {
         } else if (metrics.level === 'warn') {
           statusColor = '#FFA500'; // Orange for warning
         }
+        
+        ctx.save();
+        ctx.scale(-1, 1);
         ctx.fillStyle = statusColor;
         ctx.font = 'bold 50px Arial';
-        ctx.fillText(metrics.status, 20, yOffset);
+        ctx.fillText(metrics.status, -width + 20, yOffset);
 
       //   ctx.fillStyle = '#FFFFFF';
       //   ctx.font = '35px Arial';
