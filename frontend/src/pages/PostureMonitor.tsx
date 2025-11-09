@@ -194,36 +194,7 @@ export default function PostureMonitor() {
           </p>
         </header>
 
-        <section className="glass rounded-2xl px-6 py-4 flex flex-wrap gap-6 items-center justify-between">
-          <div className="flex flex-wrap gap-6 text-sm">
-            <InfoPill
-              label="Session"
-              value={sessionState.formattedDuration}
-              icon={Watch}
-            />
-            <InfoPill
-              label="Status"
-              value={statusBadge.label}
-              icon={Activity}
-              className={statusBadge.color}
-            />
-            <InfoPill
-              label={postureMetrics.calibrated ? "Calibrated" : "Calibrating"}
-              value={
-                postureMetrics.calibrated
-                  ? "Baseline locked"
-                  : `${calibrationPercent}%`
-              }
-              icon={Camera}
-            />
-          </div>
-          {isSessionActive && (
-            <div className="flex items-center gap-2 text-emerald-500 text-sm font-medium">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              Monitoring live
-            </div>
-          )}
-        </section>
+
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-4">
@@ -310,109 +281,53 @@ export default function PostureMonitor() {
             <div className="glass rounded-3xl p-6">
               <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
                 <Zap className="h-4 w-4 text-primary" />
-                Live Insights
+                Live Diagnostics
               </h3>
-              <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-hide">
-                {postureInsights.map((tip, idx) => (
-                  <div
-                    key={`${tip}-${idx}`}
-                    className="glass-strong rounded-2xl px-5 py-4 min-w-[240px] border border-primary/10 text-sm text-foreground/80"
-                  >
-                    {tip}
-                  </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {[
+                  diagnostics.find(d => d.title.toLowerCase().includes('neck drop')),
+                  diagnostics.find(d => d.title.toLowerCase().includes('head tilt')),
+                  diagnostics.find(d => d.title.toLowerCase().includes('shoulder tilt'))
+                ]
+                .filter((item): item is Diagnostic => item !== undefined)
+                .map((diagnostic) => (
+                  <DiagnosticCard key={diagnostic.title} {...diagnostic} />
                 ))}
               </div>
             </div>
           </div>
 
           <div className="space-y-5">
-            <MetricPanel
-              title="Neck Posture"
-              subtitle="Calibration-aware posture logic from the CV model."
-              icon={Activity}
-            >
-              <MetricRow
-                label="Neck drop"
-                value={formatPercent(postureMetrics.neckDropPercent)}
-                severity={getSeverity(postureMetrics.neckDropPercent, {
-                  warn: 8,
-                  alert: 15,
-                })}
-                helper="% drop vs. calibrated ear-to-shoulder distance"
-              />
-              <MetricRow
-                label="Head tilt"
-                value={formatDegrees(postureMetrics.headTiltDeg)}
-                severity={getSeverity(Math.abs(postureMetrics.headTiltDeg), {
-                  warn: 5,
-                  alert: 12,
-                })}
-                helper="Roll relative to baseline head alignment"
-              />
-              <MetricRow
-                label="Shoulder tilt"
-                value={formatDegrees(postureMetrics.shoulderTiltDeg)}
-                severity={getSeverity(
-                  Math.abs(postureMetrics.shoulderTiltDeg),
-                  {
-                    warn: 4,
-                    alert: 8,
-                  }
-                )}
-                helper="Left/right shoulder offset vs. calibration"
-              />
-            </MetricPanel>
-
-            <MetricPanel
-              title="Eye Strain"
-              subtitle="Face mesh tracks EAR, blinks/min, and strain windows."
-              icon={Eye}
-            >
-              <MetricRow
-                label="EAR"
-                value={eyeMetrics.ear ? eyeMetrics.ear.toFixed(2) : "-"}
-                helper="Eye Aspect Ratio - lower means eyes closed"
-              />
-              <MetricRow
-                label="Blinks (current min)"
-                value={eyeMetrics.blinkCountCurrentMinute.toString()}
-                helper="Resets every minute"
-              />
-              <MetricRow
-                label="Avg blinks (last 3 min)"
-                value={eyeMetrics.recentBlinkAverage.toFixed(1)}
-                severity={getSeverity(10 - eyeMetrics.recentBlinkAverage, {
-                  warn: 2,
-                  alert: 4,
-                })}
-                helper="Target ≥10 blinks per minute"
-              />
-              <MetricRow
-                label="Session time"
-                value={formatDuration(eyeMetrics.sessionSeconds)}
-                helper="Used for 20-20-20 reminders"
-              />
-              {!!eyeMetrics.warnings.length && (
-                <div className="text-xs text-amber-500 mt-2 space-y-1">
-                  {eyeMetrics.warnings.map((warning) => (
-                    <div key={warning} className="flex items-center gap-2">
-                      <AlertTriangle className="h-3 w-3" />
-                      {warning}
-                    </div>
-                  ))}
+            <div className="glass rounded-3xl p-5">
+              <div className="flex items-center gap-3 mb-4">
+                <Eye className="h-4 w-4 text-primary" />
+                <div>
+                  <h3 className="text-base font-semibold">Eye Strain Analysis</h3>
+                  <p className="text-xs text-muted-foreground">Real-time eye health metrics from face mesh analysis.</p>
                 </div>
-              )}
-            </MetricPanel>
-
+              </div>
+              <div className="space-y-4">
+                {[
+                  diagnostics.find(d => d.title.toLowerCase().includes('ear')),
+                  diagnostics.find(d => d.title.toLowerCase().includes('blink average')),
+                  diagnostics.find(d => d.title.toLowerCase().includes('blink count')),
+                  diagnostics.find(d => d.title.toLowerCase().includes('session time'))
+                ]
+                .filter((item): item is Diagnostic => item !== undefined)
+                .map((diagnostic) => (
+                  <DiagnosticCard key={diagnostic.title} {...diagnostic} />
+                ))}
+              </div>
+            </div>
           </div>
         </div>
 
         <div className="glass rounded-3xl p-6 float-card">
           <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
             <div>
-              <h2 className="text-xl font-semibold">Live diagnostics</h2>
+              <h2 className="text-xl font-semibold">Extended diagnostics</h2>
               <p className="text-xs text-muted-foreground">
-                Real-time posture + eye metrics compared to healthy ranges.
+                Additional posture + eye metrics compared to healthy ranges.
               </p>
             </div>
             <div className="text-right text-xs text-muted-foreground">
@@ -422,9 +337,15 @@ export default function PostureMonitor() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-            {diagnostics.map((item) => (
-              <DiagnosticCard key={item.title} {...item} />
-            ))}
+            {diagnostics
+              .filter(diagnostic => 
+                !diagnostic.title.toLowerCase().includes('ear') && 
+                !diagnostic.title.toLowerCase().includes('blink') && 
+                !diagnostic.title.toLowerCase().includes('session time')
+              )
+              .map((item) => (
+                <DiagnosticCard key={item.title} {...item} />
+              ))}
           </div>
         </div>
 
@@ -602,6 +523,8 @@ function buildDiagnostics(
   const shoulderTilt = Math.abs(postureMetrics.shoulderTiltDeg);
   const blinkAvg = eyeMetrics.recentBlinkAverage;
   const sessionSeconds = eyeMetrics.sessionSeconds;
+  const ear = eyeMetrics.ear || 0;
+  const blinkCountCurrentMinute = eyeMetrics.blinkCountCurrentMinute;
 
   return [
     {
@@ -623,6 +546,15 @@ function buildDiagnostics(
         "Balanced alignment",
     },
     {
+      title: "Shoulder tilt",
+      value: formatDegrees(shoulderTilt),
+      helper: "Alert above 8°",
+      status: getSeverity(shoulderTilt, { warn: 4, alert: 8 }),
+      progress: Math.min(100, (shoulderTilt / 8) * 100 || 0),
+      detail: postureMetrics.alerts.find((a) => a.toLowerCase().includes("shoulder")) ??
+        "Even shoulder alignment",
+    },
+    {
       title: "Blink average",
       value: `${blinkAvg.toFixed(1)} / min`,
       helper: "Healthy ≥ 10 blinks/min",
@@ -633,7 +565,15 @@ function buildDiagnostics(
         (blinkAvg < 10 ? "Take a 20-20-20 break" : "Comfortable blink cadence"),
     },
     {
-      title: "Session timer",
+      title: "EAR",
+      value: ear ? ear.toFixed(2) : "-",
+      helper: "Eye aspect ratio ≥ 0.25 healthy",
+      status: ear < 0.20 ? "alert" : ear < 0.25 ? "warn" : "ok",
+      progress: Math.min(100, (ear / 0.6) * 100 || 0),
+      detail: ear < 0.25 ? "Eyes may be too closed" : "Good eye openness",
+    },
+    {
+      title: "Session time",
       value: formatDuration(sessionSeconds),
       helper: "Break every 20 min",
       status: sessionSeconds >= 1200 ? "alert" : sessionSeconds >= 900 ? "warn" : "ok",
@@ -642,6 +582,14 @@ function buildDiagnostics(
         sessionSeconds >= 1200
           ? "Time to stand and reset"
           : `${Math.max(0, 20 - Math.floor(sessionSeconds / 60))} min until break`,
+    },
+    {
+      title: "Blink count (curr min)",
+      value: blinkCountCurrentMinute.toString(),
+      helper: "Resets every minute",
+      status: blinkCountCurrentMinute < 5 ? "alert" : blinkCountCurrentMinute < 8 ? "warn" : "ok",
+      progress: Math.min(100, (blinkCountCurrentMinute / 15) * 100 || 0),
+      detail: blinkCountCurrentMinute < 8 ? "Low blink count for minute" : "Normal blink activity",
     },
   ];
 }
