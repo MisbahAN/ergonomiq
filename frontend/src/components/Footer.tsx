@@ -18,7 +18,7 @@ export function Footer() {
               <span className="font-semibold text-primary">Team 777777</span>
             </p>
             <p className="text-sm text-muted-foreground mt-1">
-              MedTech Hackathon 2025
+              Nathacks 2025
             </p>
           </div>
         </div>

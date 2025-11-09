@@ -4,12 +4,19 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Camera, Mail, Bell, CheckCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuthStore } from "@/hooks/useAuthStore";
 import { authService } from "@/lib/authService";
 import { firestoreService } from "@/lib/firestoreService";
+
+const NOTIFICATION_FREQUENCY_OPTIONS = [
+  { value: 30, label: "Every 30 seconds" },
+  { value: 60, label: "Every 1 minute" },
+  { value: 300, label: "Every 5 minutes" },
+  { value: 600, label: "Every 10 minutes" },
+  { value: 900, label: "Every 15 minutes" },
+];
 
 export default function Profile() {
   const { toast } = useToast();
@@ -34,7 +41,7 @@ export default function Profile() {
 
   // Notification state
   const [emailAlertsEnabled, setEmailAlertsEnabled] = useState(true);
-  const [notificationFrequency, setNotificationFrequency] = useState("2hours");
+  const [notificationFrequency, setNotificationFrequency] = useState<number>(60);
 
   // Fetch user profile from Firestore when user is available
   useEffect(() => {
@@ -60,6 +67,30 @@ export default function Profile() {
     };
 
     fetchUserProfile();
+  }, [user]);
+
+  useEffect(() => {
+    const fetchNotificationSettings = async () => {
+      if (!user) return;
+      try {
+        const settings = await firestoreService.getUserSettings(user.uid);
+        if (settings) {
+          if (typeof settings.notificationFrequency === "number") {
+            setNotificationFrequency(settings.notificationFrequency);
+          }
+          if (typeof settings.emailAlerts === "boolean") {
+            setEmailAlertsEnabled(settings.emailAlerts);
+          }
+          if (typeof settings.alertEmail === "string" && settings.alertEmail.length > 0) {
+            setEmail(settings.alertEmail);
+          }
+        }
+      } catch (error) {
+        console.error("Error loading notification settings:", error);
+      }
+    };
+
+    fetchNotificationSettings();
   }, [user]);
 
   const handleSaveProfile = async () => {
@@ -135,7 +166,81 @@ export default function Profile() {
     }
   };
 
-  const handleSaveEmail = () => {
+  const formatFrequencyLabel = (value: number) => {
+    const match = NOTIFICATION_FREQUENCY_OPTIONS.find((option) => option.value === value);
+    return match ? match.label : `Every ${value} seconds`;
+  };
+
+  const persistSettings = async (settings: { notificationFrequency?: number; emailAlerts?: boolean; alertEmail?: string }) => {
+    if (!user) {
+      toast({
+        title: "Authentication error",
+        description: "You must be logged in to update notification settings.",
+        variant: "destructive",
+        duration: 3000,
+      });
+      throw new Error("User not authenticated");
+    }
+
+    await firestoreService.updateUserSettings(user.uid, settings);
+  };
+
+  const handleNotificationFrequencyChange = async (value: string) => {
+    const nextValue = Number(value);
+    if (Number.isNaN(nextValue)) return;
+    const previousValue = notificationFrequency;
+    setNotificationFrequency(nextValue);
+
+    try {
+      await persistSettings({
+        notificationFrequency: nextValue,
+        emailAlerts: emailAlertsEnabled,
+      });
+      toast({
+        title: "Notification frequency updated!",
+        description: `You'll receive reminders ${formatFrequencyLabel(nextValue).toLowerCase()}.`,
+        duration: 3000,
+      });
+    } catch (error) {
+      console.error("Error updating notification frequency:", error);
+      setNotificationFrequency(previousValue);
+      toast({
+        title: "Unable to update frequency",
+        description: "Please try again shortly.",
+        variant: "destructive",
+        duration: 3000,
+      });
+    }
+  };
+
+  const handleEmailAlertsToggle = async (checked: boolean) => {
+    const previous = emailAlertsEnabled;
+    setEmailAlertsEnabled(checked);
+    try {
+      await persistSettings({
+        emailAlerts: checked,
+        notificationFrequency,
+      });
+      toast({
+        title: checked ? "Email alerts enabled" : "Email alerts disabled",
+        description: checked
+          ? "We'll send reminders to your inbox."
+          : "You won't receive posture reminders via email.",
+        duration: 3000,
+      });
+    } catch (error) {
+      console.error("Error updating email alerts:", error);
+      setEmailAlertsEnabled(previous);
+      toast({
+        title: "Unable to update email alerts",
+        description: "Please try again later.",
+        variant: "destructive",
+        duration: 3000,
+      });
+    }
+  };
+
+  const handleSaveEmail = async () => {
     if (!email) {
       toast({
         title: "Email required",
@@ -145,25 +250,26 @@ export default function Profile() {
       });
       return;
     }
-    toast({
-      title: "Email saved!",
-      description: "You'll now receive posture check-in reminders via email.",
-      duration: 3000,
-    });
-  };
-
-  const handleSaveFrequency = () => {
-    toast({
-      title: "Notification frequency updated!",
-      description: `You'll receive reminders ${
-        notificationFrequency === "1hour"
-          ? "every hour"
-          : notificationFrequency === "2hours"
-          ? "every 2 hours"
-          : "as a daily summary"
-      }.`,
-      duration: 3000,
-    });
+    try {
+      await persistSettings({
+        alertEmail: email,
+        emailAlerts: emailAlertsEnabled,
+        notificationFrequency,
+      });
+      toast({
+        title: "Email saved!",
+        description: "You'll now receive posture check-in reminders via email.",
+        duration: 3000,
+      });
+    } catch (error) {
+      console.error("Error saving alert email:", error);
+      toast({
+        title: "Unable to save email",
+        description: "Please try again later.",
+        variant: "destructive",
+        duration: 3000,
+      });
+    }
   };
 
   return (
@@ -325,7 +431,7 @@ export default function Profile() {
                   </div>
                   <Switch
                     checked={emailAlertsEnabled}
-                    onCheckedChange={setEmailAlertsEnabled}
+                    onCheckedChange={handleEmailAlertsToggle}
                   />
                 </div>
 
@@ -392,49 +498,35 @@ export default function Profile() {
                 Notification Frequency
               </h3>
 
-              <RadioGroup value={notificationFrequency} onValueChange={setNotificationFrequency}>
-                <div className="space-y-3">
-                  <div className="flex items-center space-x-3 p-3 rounded-lg glass-strong border border-border/50 hover:border-primary/50 transition-colors">
-                    <RadioGroupItem value="1hour" id="1hour" />
-                    <Label htmlFor="1hour" className="cursor-pointer flex-1">
-                      <p className="font-medium">Every hour</p>
-                      <p className="text-xs text-muted-foreground">Frequent check-ins</p>
-                    </Label>
-                  </div>
+              <div className="space-y-3">
+                <Label htmlFor="notification-frequency" className="text-sm font-medium">
+                  How often should we check in?
+                </Label>
+                <Select
+                  value={String(notificationFrequency)}
+                  onValueChange={handleNotificationFrequencyChange}
+                >
+                  <SelectTrigger
+                    id="notification-frequency"
+                    className="glass-strong border-border/50 focus:border-primary"
+                  >
+                    <SelectValue placeholder="Select reminder cadence" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-background border-border">
+                    {NOTIFICATION_FREQUENCY_OPTIONS.map((option) => (
+                      <SelectItem key={option.value} value={String(option.value)}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-                  <div className="flex items-center space-x-3 p-3 rounded-lg glass-strong border border-border/50 hover:border-primary/50 transition-colors">
-                    <RadioGroupItem value="2hours" id="2hours" />
-                    <Label htmlFor="2hours" className="cursor-pointer flex-1">
-                      <p className="font-medium">Every 2 hours</p>
-                      <p className="text-xs text-muted-foreground">Balanced reminders</p>
-                    </Label>
-                  </div>
-
-                  <div className="flex items-center space-x-3 p-3 rounded-lg glass-strong border border-border/50 hover:border-primary/50 transition-colors">
-                    <RadioGroupItem value="daily" id="daily" />
-                    <Label htmlFor="daily" className="cursor-pointer flex-1">
-                      <p className="font-medium">Daily summary</p>
-                      <p className="text-xs text-muted-foreground">End-of-day report</p>
-                    </Label>
-                  </div>
-                </div>
-              </RadioGroup>
-
-              <Button
-                onClick={handleSaveFrequency}
-                className="w-full bg-primary hover:bg-primary-dark text-primary-foreground mt-4"
-              >
-                Save Frequency
-              </Button>
+              <p className="mt-4 text-xs text-muted-foreground leading-relaxed glass-strong rounded-xl p-3 border border-border/50">
+                A posture alert will be sent if over 50% of your selected interval is detected as poor posture.
+              </p>
             </div>
           </div>
-        </div>
-
-        {/* Coming Soon Banner */}
-        <div className="glass rounded-2xl px-6 py-4 mb-8 border border-primary/20 bg-primary/5">
-          <p className="text-sm text-center text-foreground/80">
-            💡 Slack & Discord integrations coming soon — email reminders available for hackathon demo.
-          </p>
         </div>
 
         {/* Footer - moved to AuthenticatedLayout */}

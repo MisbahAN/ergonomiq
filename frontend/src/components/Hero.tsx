@@ -12,19 +12,19 @@ export function Hero() {
       <div className="max-w-5xl mx-auto text-center">
         <div className="inline-flex items-center gap-2 glass rounded-full px-4 py-2 mb-8 animate-fade-in">
           <span className="h-2 w-2 rounded-full bg-primary animate-pulse" />
-          <span className="text-sm font-medium">AI-Powered Health Monitoring</span>
+          <span className="text-sm font-medium">Client-side CV · Wristband-ready</span>
         </div>
         
         <h1 className="text-5xl md:text-7xl font-bold mb-6 leading-tight animate-fade-in">
-          #1 AI Posture and RSI Coach{" "}
+          Unified neck, eye &amp; RSI coach{" "}
           <span className="bg-gradient-to-r from-primary via-accent to-primary-dark bg-clip-text text-transparent">
-            for Desk Workers
+            for desk workers
           </span>
         </h1>
         
         <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-10 animate-fade-in">
-          Analyze your sitting posture and wrist health in real-time with AI. 
-          Built for developers, students, and professionals.
+          Posture calibration, neck-drop alerts, blink-rate analytics, and an upcoming BioAmp-powered wristband -
+          all in one dashboard and deployable on Vercel without a backend.
         </p>
         
         <div className="flex flex-col sm:flex-row gap-4 justify-center animate-fade-in">
@@ -34,7 +34,7 @@ export function Hero() {
             className="rounded-full bg-primary hover:bg-primary-dark text-primary-foreground font-semibold text-lg px-8 py-6 shadow-lg hover:shadow-xl transition-all hover:scale-105"
           >
             <Link to="/auth">
-              Try it now
+              Launch monitor
               <ArrowRight className="ml-2 h-5 w-5" />
             </Link>
           </Button>
@@ -45,7 +45,7 @@ export function Hero() {
             className="rounded-full glass border-2 font-semibold text-lg px-8 py-6 hover:bg-primary/10 transition-all"
           >
             <Link to="#features">
-              Learn more
+              Explore platform
             </Link>
           </Button>
         </div>

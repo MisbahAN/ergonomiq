@@ -1,155 +1,169 @@
-import { useState, useEffect } from "react";
+import { useMemo } from "react";
 import { Button } from "@/components/ui/button";
-import { Camera, Play, Square } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
+import {
+  Activity,
+  AlertTriangle,
+  Camera,
+  Eye,
+  Play,
+  Square,
+  Watch,
+  Zap,
+} from "lucide-react";
+import { usePostureVision } from "@/hooks/usePostureVision";
+import { formatDuration } from "@/utils/postureMath";
+import {
+  Area,
+  AreaChart,
+  CartesianGrid,
+  Line,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
+
+const formatPercent = (value: number) => `${value.toFixed(1)}%`;
+const formatDegrees = (value: number) => `${value.toFixed(1)}°`;
+
+const postureTrendData = [
+  { time: "09:00", postureScore: 94, blinkRate: 19 },
+  { time: "09:10", postureScore: 88, blinkRate: 16 },
+  { time: "09:20", postureScore: 82, blinkRate: 14 },
+  { time: "09:30", postureScore: 78, blinkRate: 12 },
+  { time: "09:40", postureScore: 86, blinkRate: 15 },
+  { time: "09:50", postureScore: 91, blinkRate: 17 },
+  { time: "10:00", postureScore: 89, blinkRate: 18 },
+  { time: "10:10", postureScore: 84, blinkRate: 13 },
+];
 
 export default function PostureMonitor() {
-  const [isSessionActive, setIsSessionActive] = useState(false);
-  const [sessionDuration, setSessionDuration] = useState(0);
-  const [currentTipIndex, setCurrentTipIndex] = useState(0);
+  const {
+    videoRef,
+    canvasRef,
+    startSession,
+    stopSession,
+    postureMetrics,
+    eyeMetrics,
+    sessionState,
+    isModelLoading,
+    error,
+    statusBadge,
+  } = usePostureVision();
 
-  // Mock metrics
-  const [metrics] = useState({
-    neckAngle: 24.5,
-    trunkAngle: 12.3,
-    rawNeckAngle: 26.1,
-    smoothedNeckAngle: 24.2,
-    rawTrunkAngle: 13.8,
-    smoothedTrunkAngle: 12.1,
-    kneeAngle: 89.4,
-    elbowAngle: 94.2,
-    pelvicTilt: 8.7,
-  });
+  const isSessionActive = sessionState.active;
 
-  const [postureRating] = useState({ good: 75, poor: 25 });
-
-  const tips = [
-    "Straighten your back — your trunk angle is too high.",
-    "Relax your shoulders.",
-    "Try adjusting your chair height.",
-    "Keep your monitor at eye level.",
-    "Take a break every 30 minutes.",
-    "Ensure your feet are flat on the floor.",
-  ];
-
-  // Session timer
-  useEffect(() => {
-    let interval: NodeJS.Timeout;
-    if (isSessionActive) {
-      interval = setInterval(() => {
-        setSessionDuration((prev) => prev + 1);
-      }, 1000);
+  const postureInsights = useMemo(() => {
+    if (!postureMetrics.alerts.length && !eyeMetrics.warnings.length) {
+      return ["Aligned posture and relaxed eyes - keep it up!"];
     }
-    return () => clearInterval(interval);
-  }, [isSessionActive]);
+    return [...postureMetrics.alerts, ...eyeMetrics.warnings];
+  }, [postureMetrics.alerts, eyeMetrics.warnings]);
 
-  // Rotate tips
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setCurrentTipIndex((prev) => (prev + 1) % tips.length);
-    }, 4000);
-    return () => clearInterval(interval);
-  }, [tips.length]);
-
-  const formatDuration = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, "0")}`;
-  };
-
-  const currentTime = new Date().toLocaleTimeString("en-US", {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-
-  const handleStartSession = () => {
-    setIsSessionActive(true);
-    setSessionDuration(0);
-  };
-
-  const handleStopSession = () => {
-    setIsSessionActive(false);
-  };
+  const calibrationPercent = Math.round(
+    postureMetrics.calibrationProgress * 100
+  );
 
   return (
-    <div className="min-h-screen pb-12">
-      <div className="pt-28 px-8 max-w-7xl mx-auto">
-        {/* Header with prototype notice */}
-        <div className="mb-6">
-          <div className="glass rounded-2xl px-4 py-3 mb-4 inline-block">
-            <p className="text-xs text-muted-foreground">
-              ⚡ This is a prototype. Vision model integration coming soon.
-            </p>
-          </div>
-          <h1 className="text-4xl font-bold mb-2 bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-            Posture Monitor
+    <div className="min-h-screen pb-16">
+      <div className="pt-28 px-6 md:px-10 max-w-7xl mx-auto space-y-8">
+        <header className="space-y-3">
+          <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+            Neck &amp; Eye Coach
           </h1>
-          <p className="text-muted-foreground">Real-time ergonomic awareness and coaching</p>
-        </div>
+          <p className="text-muted-foreground max-w-2xl">
+            Mirrors the calibration, neck-drop, and blink-tracking logic from
+            our computer-vision model. Calibrate once, then monitor posture +
+            eye strain in real time - all client-side so Vercel-friendly.
+          </p>
+        </header>
 
-        {/* Session info bar */}
-        <div className="glass rounded-2xl px-6 py-3 mb-6 flex items-center justify-between">
-          <div className="flex items-center gap-6 text-sm">
-            <div className="flex items-center gap-2">
-              <span className="text-muted-foreground">Current Time:</span>
-              <span className="font-semibold">{currentTime}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-muted-foreground">Session Duration:</span>
-              <span className="font-semibold">{formatDuration(sessionDuration)}</span>
-            </div>
+        <section className="glass rounded-2xl px-6 py-4 flex flex-wrap gap-6 items-center justify-between">
+          <div className="flex flex-wrap gap-6 text-sm">
+            <InfoPill
+              label="Session"
+              value={sessionState.formattedDuration}
+              icon={Watch}
+            />
+            <InfoPill
+              label="Status"
+              value={statusBadge.label}
+              icon={Activity}
+              className={statusBadge.color}
+            />
+            <InfoPill
+              label={postureMetrics.calibrated ? "Calibrated" : "Calibrating"}
+              value={
+                postureMetrics.calibrated
+                  ? "Baseline locked"
+                  : `${calibrationPercent}%`
+              }
+              icon={Camera}
+            />
           </div>
-          <div className="flex items-center gap-2">
-            {isSessionActive && (
-              <span className="flex items-center gap-2 text-sm text-emerald-500">
-                <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
-                Active
-              </span>
-            )}
-          </div>
-        </div>
+          {isSessionActive && (
+            <div className="flex items-center gap-2 text-emerald-500 text-sm font-medium">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              Monitoring live
+            </div>
+          )}
+        </section>
 
-        {/* Main layout: two columns */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-          {/* Left column - Camera Feed */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-4">
-            <div className="glass rounded-2xl p-6 float-card">
-              <div className="flex items-center gap-2 mb-4">
+            <div className="glass rounded-3xl p-6 space-y-4">
+              <div className="flex flex-wrap items-center gap-3">
                 <Camera className="h-5 w-5 text-primary" />
-                <h2 className="text-lg font-semibold">Live Camera Feed (Local Only)</h2>
-              </div>
-
-              {/* Camera placeholder */}
-              <div className="relative aspect-video bg-gradient-to-br from-muted/30 to-muted/10 rounded-xl border-2 border-dashed border-border flex items-center justify-center mb-4 overflow-hidden">
-                {isSessionActive && (
-                  <div className="absolute inset-0 bg-primary/5 animate-pulse" />
+                <h2 className="text-lg font-semibold">Webcam Feed (Local)</h2>
+                {error && (
+                  <span className="text-xs text-destructive flex items-center gap-1">
+                    <AlertTriangle className="h-3 w-3" />
+                    {error}
+                  </span>
                 )}
-                <div className="text-center">
-                  <Camera className="h-16 w-16 text-muted-foreground/30 mx-auto mb-3" />
-                  <p className="text-sm text-muted-foreground">
-                    {isSessionActive ? "Session Active - Analyzing Posture..." : "Camera feed will appear here"}
-                  </p>
-                </div>
               </div>
 
-              {/* Info badge */}
-              <div className="bg-primary/10 border border-primary/20 rounded-lg px-4 py-2 mb-4">
-                <p className="text-xs text-foreground/70">
-                  📹 For testing only — uses local webcam stream. Cloud device support coming soon.
-                </p>
+              <div className="relative rounded-2xl border border-border overflow-hidden bg-black/60">
+                <video
+                  ref={videoRef}
+                  className="w-full aspect-video object-cover opacity-90"
+                  playsInline
+                  muted
+                  autoPlay
+                  style={{ transform: "scaleX(-1)" }}
+                />
+                <canvas
+                  ref={canvasRef}
+                  className="absolute inset-0 w-full h-full pointer-events-none"
+                />
+                {!isSessionActive && (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-6 text-muted-foreground backdrop-blur-sm">
+                    <Camera className="h-12 w-12 mb-3 text-muted-foreground/50" />
+                    <p className="text-sm">
+                      Start a session to calibrate shoulders, neck, and blinks.
+                      Data stays on-device.
+                    </p>
+                  </div>
+                )}
+                {isModelLoading && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/60 text-white text-sm">
+                    Loading MediaPipe models…
+                  </div>
+                )}
               </div>
 
-              {/* Control buttons */}
-              <div className="flex gap-3">
+              <div className="flex flex-col sm:flex-row gap-3">
                 <Button
-                  onClick={handleStartSession}
-                  disabled={isSessionActive}
-                  className="flex-1 bg-primary hover:bg-primary-dark text-primary-foreground"
+                  onClick={startSession}
+                  disabled={isSessionActive || isModelLoading}
+                  className="flex-1"
                 >
                   <Play className="h-4 w-4 mr-2" />
-                  Start Local Session
+                  {isModelLoading ? "Preparing…" : "Start Session"}
                 </Button>
                 <Button
-                  onClick={handleStopSession}
+                  onClick={stopSession}
                   disabled={!isSessionActive}
                   variant="outline"
                   className="flex-1"
@@ -158,123 +172,281 @@ export default function PostureMonitor() {
                   Stop Session
                 </Button>
               </div>
+
             </div>
 
-            {/* Posture Rating Card */}
-            <div className="glass rounded-2xl p-6 float-card">
-              <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                <span className="text-primary">●</span>
-                Posture Rating
+            <div className="glass rounded-3xl p-6">
+              <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
+                <Zap className="h-4 w-4 text-primary" />
+                Live Insights
               </h3>
-              <div className="space-y-4">
-                <div className="flex items-end gap-4">
-                  <div className="text-6xl font-bold bg-gradient-to-r from-emerald-500 to-primary bg-clip-text text-transparent">
-                    {postureRating.good}%
-                  </div>
-                  <div className="mb-2">
-                    <span className="text-emerald-500 text-sm font-semibold">GOOD</span>
-                  </div>
-                </div>
-                <div className="h-3 bg-muted rounded-full overflow-hidden">
+              <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-hide">
+                {postureInsights.map((tip, idx) => (
                   <div
-                    className="h-full bg-gradient-to-r from-emerald-500 to-primary transition-all duration-500"
-                    style={{ width: `${postureRating.good}%` }}
-                  />
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  {postureRating.good >= 70
-                    ? "Excellent posture! Keep it up."
-                    : postureRating.good >= 50
-                    ? "Good posture, minor adjustments needed."
-                    : "Poor posture detected. Please adjust your position."}
-                </p>
+                    key={`${tip}-${idx}`}
+                    className="glass-strong rounded-2xl px-5 py-4 min-w-[240px] border border-primary/10 text-sm text-foreground/80"
+                  >
+                    {tip}
+                  </div>
+                ))}
               </div>
             </div>
           </div>
 
-          {/* Right column - Metrics */}
-          <div className="space-y-4">
-            <h2 className="text-lg font-semibold mb-2">Live Metrics</h2>
-
-            {/* Metrics cards */}
-            <div className="space-y-3">
-              <MetricCard label="Neck Angle" value={metrics.neckAngle} unit="°" active={isSessionActive} />
-              <MetricCard label="Trunk Angle" value={metrics.trunkAngle} unit="°" active={isSessionActive} />
-              <MetricCard label="Raw Neck Angle" value={metrics.rawNeckAngle} unit="°" active={isSessionActive} />
-              <MetricCard
-                label="Smoothed Neck Angle"
-                value={metrics.smoothedNeckAngle}
-                unit="°"
-                active={isSessionActive}
+          <div className="space-y-5">
+            <MetricPanel
+              title="Neck Posture"
+              subtitle="Calibration-aware posture logic from the CV model."
+              icon={Activity}
+            >
+              <MetricRow
+                label="Neck drop"
+                value={formatPercent(postureMetrics.neckDropPercent)}
+                severity={getSeverity(postureMetrics.neckDropPercent, {
+                  warn: 8,
+                  alert: 15,
+                })}
+                helper="% drop vs. calibrated ear-to-shoulder distance"
               />
-              <MetricCard label="Raw Trunk Angle" value={metrics.rawTrunkAngle} unit="°" active={isSessionActive} />
-              <MetricCard
-                label="Smoothed Trunk Angle"
-                value={metrics.smoothedTrunkAngle}
-                unit="°"
-                active={isSessionActive}
+              <MetricRow
+                label="Head tilt"
+                value={formatDegrees(postureMetrics.headTiltDeg)}
+                severity={getSeverity(Math.abs(postureMetrics.headTiltDeg), {
+                  warn: 5,
+                  alert: 12,
+                })}
+                helper="Roll relative to baseline head alignment"
               />
-              <MetricCard label="Knee Angle" value={metrics.kneeAngle} unit="°" active={isSessionActive} />
-              <MetricCard label="Elbow Angle" value={metrics.elbowAngle} unit="°" active={isSessionActive} />
-              <MetricCard label="Pelvic Tilt" value={metrics.pelvicTilt} unit="°" active={isSessionActive} />
-            </div>
-          </div>
-        </div>
+              <MetricRow
+                label="Shoulder tilt"
+                value={formatDegrees(postureMetrics.shoulderTiltDeg)}
+                severity={getSeverity(
+                  Math.abs(postureMetrics.shoulderTiltDeg),
+                  {
+                    warn: 4,
+                    alert: 8,
+                  }
+                )}
+                helper="Left/right shoulder offset vs. calibration"
+              />
+            </MetricPanel>
 
-        {/* Tips Section */}
-        <div className="glass rounded-2xl p-6 float-card mb-8">
-          <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-            <span className="text-primary">💡</span>
-            Posture Tips
-          </h3>
-          <div className="overflow-x-auto scrollbar-hide">
-            <div className="flex gap-4 pb-2">
-              {tips.map((tip, index) => (
-                <div
-                  key={index}
-                  className={`glass-strong rounded-xl p-4 min-w-[300px] transition-all duration-500 ${
-                    index === currentTipIndex
-                      ? "border-2 border-primary shadow-lg scale-105"
-                      : "border border-transparent"
-                  }`}
-                >
-                  <p className="text-sm text-foreground/80">{tip}</p>
+            <MetricPanel
+              title="Eye Strain"
+              subtitle="Face mesh tracks EAR, blinks/min, and strain windows."
+              icon={Eye}
+            >
+              <MetricRow
+                label="EAR"
+                value={eyeMetrics.ear ? eyeMetrics.ear.toFixed(2) : "-"}
+                helper="Eye Aspect Ratio - lower means eyes closed"
+              />
+              <MetricRow
+                label="Blinks (current min)"
+                value={eyeMetrics.blinkCountCurrentMinute.toString()}
+                helper="Resets every minute"
+              />
+              <MetricRow
+                label="Avg blinks (last 3 min)"
+                value={eyeMetrics.recentBlinkAverage.toFixed(1)}
+                severity={getSeverity(10 - eyeMetrics.recentBlinkAverage, {
+                  warn: 2,
+                  alert: 4,
+                })}
+                helper="Target ≥10 blinks per minute"
+              />
+              <MetricRow
+                label="Session time"
+                value={formatDuration(eyeMetrics.sessionSeconds)}
+                helper="Used for 20-20-20 reminders"
+              />
+              {!!eyeMetrics.warnings.length && (
+                <div className="text-xs text-amber-500 mt-2 space-y-1">
+                  {eyeMetrics.warnings.map((warning) => (
+                    <div key={warning} className="flex items-center gap-2">
+                      <AlertTriangle className="h-3 w-3" />
+                      {warning}
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
+              )}
+            </MetricPanel>
+
           </div>
         </div>
 
-        {/* Footer - moved to AuthenticatedLayout */}
+        <div className="glass rounded-3xl p-6 float-card">
+          <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+            <div>
+              <h2 className="text-xl font-semibold">Posture &amp; Eye Trend</h2>
+              <p className="text-xs text-muted-foreground">
+                Rolling 70-minute view of posture quality (%) and blink rate (per min).
+              </p>
+            </div>
+            <div className="text-right text-xs text-muted-foreground">
+              <p>Data source: local CV session</p>
+              <p>Updates every 10 minutes</p>
+            </div>
+          </div>
+          <div className="h-80">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={postureTrendData}>
+                <defs>
+                  <linearGradient id="postureGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.35} />
+                    <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                <XAxis
+                  dataKey="time"
+                  stroke="hsl(var(--muted-foreground))"
+                  style={{ fontSize: "12px" }}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <YAxis
+                  stroke="hsl(var(--muted-foreground))"
+                  style={{ fontSize: "12px" }}
+                  axisLine={false}
+                  tickLine={false}
+                  domain={[60, 100]}
+                  label={{
+                    value: "Posture Quality (%)",
+                    angle: -90,
+                    position: "insideLeft",
+                    style: { fontSize: "12px" },
+                  }}
+                />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: "hsl(var(--background))",
+                    border: "1px solid hsl(var(--border))",
+                    borderRadius: "12px",
+                    fontSize: "12px",
+                  }}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="postureScore"
+                  stroke="hsl(var(--primary))"
+                  strokeWidth={3}
+                  fill="url(#postureGradient)"
+                  name="Posture Quality"
+                />
+                <Line
+                  type="monotone"
+                  dataKey="blinkRate"
+                  stroke="hsl(var(--accent))"
+                  strokeWidth={2}
+                  dot={{ r: 3, fill: "hsl(var(--background))" }}
+                  name="Blink Rate"
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+          <div className="flex flex-wrap gap-6 mt-4 text-xs text-muted-foreground">
+            <div className="flex items-center gap-2">
+              <span className="h-3 w-3 rounded-full bg-primary" />
+              <span>Posture quality</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="h-3 w-3 rounded-full bg-[hsl(var(--accent))]" />
+              <span>Blinks per minute</span>
+            </div>
+            <span className="ml-auto">
+              Healthy range: posture ≥85% · blink rate ≥15 / min
+            </span>
+          </div>
+        </div>
       </div>
     </div>
   );
 }
 
-// Metric Card Component
-function MetricCard({
+function InfoPill({
   label,
   value,
-  unit,
-  active,
+  icon: Icon,
+  className,
 }: {
   label: string;
-  value: number;
-  unit: string;
-  active: boolean;
+  value: string;
+  icon: LucideIcon;
+  className?: string;
 }) {
   return (
-    <div className="glass rounded-xl p-4 hover:shadow-lg transition-all">
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-xs text-muted-foreground font-medium">{label}</span>
-        {active && <span className="w-1.5 h-1.5 bg-primary rounded-full animate-pulse" />}
-      </div>
-      <div className="flex items-baseline gap-1">
-        <span className={`text-2xl font-bold ${active ? "text-primary" : "text-foreground"}`}>
-          {value.toFixed(1)}
-        </span>
-        <span className="text-sm text-muted-foreground">{unit}</span>
+    <div className="glass rounded-xl px-4 py-2 flex items-center gap-3 text-sm font-medium">
+      <Icon className="h-4 w-4 text-primary" />
+      <div>
+        <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
+          {label}
+        </p>
+        <p className={`text-sm ${className ?? ""}`}>{value}</p>
       </div>
     </div>
   );
+}
+
+function MetricPanel({
+  title,
+  subtitle,
+  icon: Icon,
+  children,
+}: {
+  title: string;
+  subtitle: string;
+  icon: LucideIcon;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="glass rounded-3xl p-5 space-y-4">
+      <div className="flex items-center gap-3">
+        <Icon className="h-4 w-4 text-primary" />
+        <div>
+          <h3 className="text-base font-semibold">{title}</h3>
+          <p className="text-xs text-muted-foreground">{subtitle}</p>
+        </div>
+      </div>
+      <div className="space-y-3">{children}</div>
+    </div>
+  );
+}
+
+function MetricRow({
+  label,
+  value,
+  helper,
+  severity,
+}: {
+  label: string;
+  value: string;
+  helper?: string;
+  severity?: "ok" | "warn" | "alert";
+}) {
+  const color =
+    severity === "alert"
+      ? "text-red-500"
+      : severity === "warn"
+      ? "text-amber-500"
+      : "text-foreground";
+
+  return (
+    <div className="rounded-2xl border border-border px-4 py-3">
+      <div className="flex items-center justify-between text-sm">
+        <span className="text-muted-foreground">{label}</span>
+        <span className={`text-base font-semibold ${color}`}>{value}</span>
+      </div>
+      {helper && <p className="text-xs text-muted-foreground mt-1">{helper}</p>}
+    </div>
+  );
+}
+
+function getSeverity(
+  value: number,
+  thresholds: { warn: number; alert: number }
+) {
+  if (value >= thresholds.alert) return "alert";
+  if (value >= thresholds.warn) return "warn";
+  return "ok";
 }

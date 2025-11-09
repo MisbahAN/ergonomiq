@@ -1,8 +1,10 @@
+import os
+os.environ.setdefault("MEDIAPIPE_DISABLE_GPU", "1")
+
 import cv2
 import mediapipe as mp
 import numpy as np
 import time
-import os
 from scipy.spatial import distance
 
 # ---------- Optional sound ----------

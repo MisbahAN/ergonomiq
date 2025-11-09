@@ -2,6 +2,7 @@ import { TrendingUp } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { useAuthStore } from "@/hooks/useAuthStore";
 
 // Mock data - keeping same data structure
 const weeklyData = [
@@ -17,6 +18,14 @@ const weeklyData = [
 
 export default function Dashboard() {
   const [activeTab, setActiveTab] = useState<'WEEK' | 'MONTH' | 'YEAR'>('WEEK');
+  const { user } = useAuthStore();
+
+  const hour = new Date().getHours();
+  const timeOfDay = hour < 12 ? "morning" : hour < 18 ? "afternoon" : "evening";
+  const displayName =
+    user?.displayName?.split(" ")[0] ??
+    user?.email?.split("@")[0] ??
+    "there";
 
   return (
     <div className="min-h-screen pb-12">
@@ -24,7 +33,7 @@ export default function Dashboard() {
         {/* Welcome Header */}
         <div className="mb-8">
           <h1 className="text-4xl font-bold mb-2 bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-            Good evening, Misbah 👋
+            {`Good ${timeOfDay}, ${displayName}`} 👋
           </h1>
           <p className="text-muted-foreground">Your posture summary today</p>
         </div>

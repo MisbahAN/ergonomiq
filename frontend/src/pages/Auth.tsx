@@ -9,6 +9,17 @@ import { ArrowLeft, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { authService } from "@/lib/authService";
 import { useAuthStore } from "@/hooks/useAuthStore";
+import type { User } from "firebase/auth";
+
+const getFirstName = (user?: Pick<User, "displayName" | "email"> | null, fallback = "there") => {
+  if (!user) return fallback;
+  const displayName = user.displayName?.trim();
+  if (displayName) {
+    return displayName.split(" ")[0];
+  }
+  const emailLocalPart = user.email?.split("@")[0];
+  return emailLocalPart ?? fallback;
+};
 
 export default function Auth() {
   const [isLoading, setIsLoading] = useState(false);
@@ -38,7 +49,7 @@ export default function Auth() {
         // Store user in auth context
         login(user);
         
-        const name = user.email?.split("@")[0] || "User";
+        const name = getFirstName(user, "friend");
         toast({
           title: `Welcome back, ${name}! 🎉`,
           description: "Loading your wellness dashboard...",
@@ -93,8 +104,9 @@ export default function Auth() {
         // Store user in auth context
         login(user);
         
+        const firstName = name.split(" ")[0] || "friend";
         toast({
-          title: `Welcome to Posturely, ${name}! 🎉`,
+          title: `Welcome to Posturely, ${firstName}! 🎉`,
           description: "Setting up your wellness dashboard...",
         });
 
@@ -129,7 +141,7 @@ export default function Auth() {
         // Store user in auth context
         login(user);
         
-        const name = user.displayName || user.email?.split("@")[0] || "User";
+        const name = getFirstName(user, "friend");
         toast({
           title: `Welcome back, ${name}! 🎉`,
           description: "Loading your wellness dashboard...",
@@ -460,7 +472,7 @@ export default function Auth() {
 
           {/* Footer */}
           <div className="mt-8 text-center text-sm text-muted-foreground">
-            <p>Posturely — Team 777777 @ Hackathon 2025</p>
+            <p>Posturely - Team 777777 @ Nathacks 2025</p>
           </div>
         </div>
       </div>

@@ -8,116 +8,115 @@ All colors MUST be HSL.
 
 @layer base {
   :root {
-    /* Base colors - light theme with cyan accents */
+    /* Light theme with pink + charcoal accents */
     --background: 0 0% 100%;
-    --foreground: 210 15% 20%;
+    --foreground: 220 5% 16%;
 
     --card: 0 0% 100%;
-    --card-foreground: 210 15% 20%;
+    --card-foreground: 220 5% 16%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 210 15% 20%;
+    --popover-foreground: 220 5% 16%;
 
-    /* Cyan primary palette */
-    --primary: 186 100% 50%;
+    --primary: 330 100% 68%;
     --primary-foreground: 0 0% 100%;
-    --primary-light: 186 80% 85%;
-    --primary-dark: 186 60% 30%;
+    --primary-light: 330 100% 85%;
+    --primary-dark: 330 70% 48%;
 
-    --secondary: 186 20% 96%;
-    --secondary-foreground: 186 40% 20%;
+    --secondary: 330 60% 96%;
+    --secondary-foreground: 330 65% 28%;
 
-    --muted: 210 20% 96%;
-    --muted-foreground: 210 15% 50%;
+    --muted: 220 12% 94%;
+    --muted-foreground: 220 8% 40%;
 
-    --accent: 186 80% 60%;
+    --accent: 330 100% 70%;
     --accent-foreground: 0 0% 100%;
 
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 186 30% 90%;
-    --input: 186 30% 90%;
-    --ring: 186 100% 50%;
+    --border: 220 14% 88%;
+    --input: 220 14% 88%;
+    --ring: 330 100% 68%;
 
     --radius: 1rem;
 
     /* Glass effect colors */
-    --glass-bg: 0 0% 100% / 0.7;
-    --glass-border: 186 50% 80% / 0.3;
+    --glass-bg: 0 0% 100% / 0.75;
+    --glass-border: 330 70% 80% / 0.35;
     
     /* Gradient tokens */
-    --gradient-hero: linear-gradient(135deg, hsl(186, 100%, 95%) 0%, hsl(186, 80%, 85%) 100%);
-    --gradient-card: linear-gradient(145deg, hsl(0, 0%, 100%) 0%, hsl(186, 30%, 98%) 100%);
+    --gradient-hero: linear-gradient(135deg, hsl(330, 100%, 96%) 0%, hsl(330, 80%, 88%) 100%);
+    --gradient-card: linear-gradient(145deg, hsl(0, 0%, 100%) 0%, hsl(330, 40%, 96%) 100%);
     
     /* Shadows */
-    --shadow-glass: 0 8px 32px hsl(186, 50%, 50% / 0.1);
-    --shadow-float: 0 10px 40px hsl(186, 40%, 50% / 0.15);
-    --shadow-hover: 0 15px 50px hsl(186, 40%, 50% / 0.2);
+    --shadow-glass: 0 12px 40px hsl(330, 90%, 60% / 0.15);
+    --shadow-float: 0 15px 45px hsl(330, 70%, 50% / 0.2);
+    --shadow-hover: 0 20px 60px hsl(330, 80%, 55% / 0.25);
 
-    --sidebar-background: 0 0% 98%;
-    --sidebar-foreground: 240 5.3% 26.1%;
-    --sidebar-primary: 240 5.9% 10%;
-    --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 240 4.8% 95.9%;
-    --sidebar-accent-foreground: 240 5.9% 10%;
-    --sidebar-border: 220 13% 91%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 220 5% 16%;
+    --sidebar-primary: 330 100% 68%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 330 60% 96%;
+    --sidebar-accent-foreground: 220 5% 16%;
+    --sidebar-border: 220 14% 88%;
+    --sidebar-ring: 330 100% 68%;
   }
 
   .dark {
-    /* Dark theme with cyan accents */
-    --background: 210 30% 8%;
-    --foreground: 186 20% 90%;
+    /* Dark theme rooted in charcoal + pink accent */
+    --background: 220 5% 16%;
+    --foreground: 0 0% 98%;
 
-    --card: 210 25% 12%;
-    --card-foreground: 186 20% 90%;
+    --card: 220 5% 20%;
+    --card-foreground: 0 0% 98%;
 
-    --popover: 210 25% 12%;
-    --popover-foreground: 186 20% 90%;
+    --popover: 220 5% 22%;
+    --popover-foreground: 0 0% 98%;
 
-    --primary: 186 100% 50%;
-    --primary-foreground: 210 30% 8%;
-    --primary-light: 186 60% 40%;
-    --primary-dark: 186 80% 70%;
+    --primary: 330 100% 68%;
+    --primary-foreground: 220 5% 16%;
+    --primary-light: 330 70% 60%;
+    --primary-dark: 330 80% 45%;
 
-    --secondary: 210 25% 15%;
-    --secondary-foreground: 186 20% 90%;
+    --secondary: 330 30% 28%;
+    --secondary-foreground: 0 0% 98%;
 
-    --muted: 210 25% 15%;
-    --muted-foreground: 186 15% 60%;
+    --muted: 220 10% 30%;
+    --muted-foreground: 0 0% 85%;
 
-    --accent: 186 80% 60%;
-    --accent-foreground: 210 30% 8%;
+    --accent: 330 100% 70%;
+    --accent-foreground: 220 5% 16%;
 
     --destructive: 0 62.8% 50%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 210 25% 20%;
-    --input: 210 25% 20%;
-    --ring: 186 100% 50%;
+    --border: 220 6% 32%;
+    --input: 220 6% 32%;
+    --ring: 330 100% 68%;
 
     /* Glass effect colors - dark */
-    --glass-bg: 210 25% 12% / 0.7;
-    --glass-border: 186 50% 40% / 0.2;
+    --glass-bg: 220 5% 22% / 0.75;
+    --glass-border: 330 70% 60% / 0.35;
     
     /* Gradient tokens - dark */
-    --gradient-hero: linear-gradient(135deg, hsl(210, 30%, 10%) 0%, hsl(210, 25%, 15%) 100%);
-    --gradient-card: linear-gradient(145deg, hsl(210, 25%, 12%) 0%, hsl(210, 25%, 14%) 100%);
+    --gradient-hero: linear-gradient(135deg, hsl(220, 8%, 18%) 0%, hsl(220, 6%, 26%) 100%);
+    --gradient-card: linear-gradient(145deg, hsl(220, 6%, 22%) 0%, hsl(220, 6%, 28%) 100%);
     
     /* Shadows - dark */
-    --shadow-glass: 0 8px 32px hsl(0, 0%, 0% / 0.3);
-    --shadow-float: 0 10px 40px hsl(186, 40%, 30% / 0.2);
-    --shadow-hover: 0 15px 50px hsl(186, 40%, 30% / 0.25);
+    --shadow-glass: 0 12px 40px hsl(0, 0%, 0% / 0.45);
+    --shadow-float: 0 15px 45px hsl(330, 80%, 40% / 0.25);
+    --shadow-hover: 0 20px 65px hsl(330, 80%, 50% / 0.3);
 
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --sidebar-background: 220 5% 16%;
+    --sidebar-foreground: 0 0% 98%;
+    --sidebar-primary: 330 100% 68%;
+    --sidebar-primary-foreground: 220 5% 16%;
+    --sidebar-accent: 220 6% 24%;
+    --sidebar-accent-foreground: 0 0% 98%;
+    --sidebar-border: 220 6% 32%;
+    --sidebar-ring: 330 100% 68%;
   }
 }
 
@@ -128,7 +127,7 @@ All colors MUST be HSL.
 
   body {
     @apply bg-background text-foreground;
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-family: 'Helvetica Neue', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   }
 }
 
