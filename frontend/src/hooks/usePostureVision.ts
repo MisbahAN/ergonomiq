@@ -587,13 +587,7 @@ export function usePostureVision() {
           }
         });
 
-        // Draw center line (red vertical line)
-        ctx.strokeStyle = 'rgba(255, 0, 0, 0.7)';
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.moveTo(width / 2, 0);
-        ctx.lineTo(width / 2, height);
-        ctx.stroke();
+
 
         // Draw shoulder line (green)
         const leftShoulder = landmarks[11];
@@ -885,7 +879,7 @@ export function usePostureVision() {
         const now = Date.now();
         if (now - lastAlertRef.current > ALERT_COOLDOWN) {
           console.log('Poor posture detected! Sit upright.');
-          playAlertSound();
+          // playAlertSound(); // Audio functionality commented out
           lastAlertRef.current = now;
         }
       }
@@ -917,7 +911,7 @@ export function usePostureVision() {
       }
       emitMetrics();
     },
-    [emitMetrics, playAlertSound]
+    [emitMetrics] // playAlertSound removed as audio functionality is commented out
   );
 
   const updateEyeState = useCallback(
