@@ -624,7 +624,7 @@ export function usePostureVision() {
 
       // // Draw status and metrics (like HTML)
       // Draw status and metrics (like HTML)
-      let yOffset = 120;
+      const yOffset = 120;
       if (metrics.calibrated) {
         let statusColor = '#00FF00'; // Default to green for OK
         if (metrics.level === 'alert') {
