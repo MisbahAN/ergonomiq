@@ -1,5 +1,7 @@
 # Virtual environments
 posture_env/
+/.venv/
+**/.venv/
 
 # Firebase service account keys
 posture-ai-18e1b-firebase-adminsdk-fbsvc-4cc978908f.json
@@ -16,8 +18,9 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
-lib64/
+/lib/
+/lib64/
+!frontend/src/lib/
 parts/
 sdist/
 var/
