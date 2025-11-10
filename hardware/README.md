@@ -1,6 +1,6 @@
 # Wireless Patch - EMG-Based Wrist Strain Monitoring System
 
-The Wireless Patch is an EMG (Electromyography) hardware device that integrates with the Ergonomiq application to monitor wrist strain and prevent Repetitive Strain Injury (RSI) during typing and computer use. It uses surface EMG sensors connected via wires to the user's body at specific points to detect muscle activity in the forearm and provides real-time feedback about typing patterns and accumulated risk.
+The Wireless Patch is an EMG (Electromyography) hardware device that integrates with the Ergonomiq application (live at [ergonomiq.dev](https://www.ergonomiq.dev/) — we even joke about it as “erqonomiq.dev”) to monitor wrist strain and prevent Repetitive Strain Injury (RSI) during typing and computer use. It uses a **BioAmp EXG Pill** surface EMG sensor wired to the user’s forearm to detect muscle activity and provides real-time feedback about typing patterns and accumulated risk.
 
 ## 📋 Overview
 
@@ -10,9 +10,9 @@ The hardware component monitors muscle activity using EMG sensors connected to a
 
 ### Hardware Components
 - **Arduino Mega** (or compatible board) running StandardFirmata firmware
-- **EMG Sensors** connected via wired electrodes to specific points on the user's body (forearm)
-- **LED Indicator** on digital pin 13 for visual feedback
-- **Optional Haptic Feedback** module for physical alerts
+- **BioAmp EXG Pill EMG sensor** connected via wired electrodes to the forearm
+- **Motion Vibrato haptic module** for physical alerts
+- **Optional status LED** for visual debugging
 
 ### Software Stack
 - **Python** with pyFirmata for Arduino communication
@@ -24,7 +24,8 @@ The hardware component monitors muscle activity using EMG sensors connected to a
 
 ### Prerequisites
 - Arduino Mega (or compatible board)
-- EMG sensors (e.g., MyoWare Muscle Sensor)
+- **BioAmp EXG Pill** EMG sensor (primary sensor supported)
+- Motion Vibrato (or similar haptic) module
 - Jumper wires for connections
 - Python 3.8 or higher
 - Arduino IDE (for uploading StandardFirmata)
@@ -37,10 +38,10 @@ The hardware component monitors muscle activity using EMG sensors connected to a
    - Select your Arduino board and port
    - Upload the firmware to your Arduino
 
-2. **Connect EMG Sensors**
-   - Connect EMG sensor to analog pin A0 on the Arduino
-   - Connect LED to digital pin 13 (optional, for visual feedback)
-   - Ensure proper power (VCC) and ground (GND) connections
+2. **Wire the BioAmp EXG Pill + Motion Vibrato**
+   - BioAmp EXG Pill → analog pin A0 (signal) plus VCC/GND rails
+   - Motion Vibrato module → digital pin 13 (or any PWM pin you prefer)
+   - Ensure the pill’s reference electrode is attached to a neutral point on the body
 
 3. **Identify Serial Port**
    - Check the Arduino IDE or system devices to find your Arduino's serial port
@@ -49,87 +50,41 @@ The hardware component monitors muscle activity using EMG sensors connected to a
      - Linux: `/dev/ttyACM0` (or similar)
      - Windows: `COM3` (or similar)
 
-### Software Installation
+### Software Installation & Demo Workflow
 
-1. **Navigate to API Directory**
+We mirror what’s live on [https://www.ergonomiq.dev/](https://www.ergonomiq.dev/) (aka erqonomiq.dev) with a simple three-terminal flow:
+
+1. **Frontend (posture + wrist dashboards)**
+   ```bash
+   cd frontend
+   npm install   # first run
+   npm run dev
+   ```
+
+2. **FastAPI shim (RSI telemetry)**
    ```bash
    cd hardware/api
+   conda activate nh25
+   uvicorn main:app --reload --host 0.0.0.0 --port 8000
    ```
 
-2. **Create Virtual Environment**
-   ```bash
-   python3 -m venv .venv
-   source .venv/bin/activate  # Linux/macOS
-   # or .venv\Scripts\activate  # Windows
-   ```
+3. **Hardware demos**
+   - *Wrist monitor (real hardware)*  
+     ```bash
+     cd hardware
+     conda activate nh25
+     python RSIDetection.py
+     ```
+     Streams the BioAmp EXG Pill + Motion Vibrato data into the Wrist Strain Coach.
 
-3. **Install Dependencies**
-   ```bash
-   pip install -r requirements.txt
-   pip install pyfirmata scipy matplotlib numpy
-   ```
+   - *Posture monitor (debug/demo script)*  
+     ```bash
+     cd hardware
+     python posture.py
+     ```
+     Replays the posture monitor logic we ran at Nathacks 2025.
 
-4. **Configure Serial Port**
-   Edit `RSIDetection.py` and update the `SERIAL_PORT` variable with your Arduino's port:
-   ```python
-   SERIAL_PORT = '/dev/cu.usbmodem1201'  # Replace with your port
-   ```
-
-## 🛠️ Running the System
-
-### Option 1: Full Hardware Setup
-Run the RSI detection system with real hardware:
-
-```bash
-cd hardware
-python RSIDetection.py
-```
-
-This will:
-- Connect to the Arduino via pyFirmata
-- Calibrate the EMG sensors for 12 seconds
-- Monitor sustained muscle activation patterns
-- Send RSI interval data to the API
-- Trigger haptic feedback when risk is detected
-
-### Option 2: FastAPI Backend Only
-Run the API server without hardware:
-
-```bash
-cd hardware/api
-uvicorn main:app --reload --host 0.0.0.0 --port 8000
-```
-
-### Option 3: Simulated Data (for Development)
-Run with simulated data instead of hardware:
-
-```bash
-cd hardware
-python debug.py
-```
-
-This continuously sends simulated RSI events to the API without requiring physical hardware.
-
-### Option 4: Frontend Integration
-To use with the Ergonomiq frontend, ensure both the API and frontend are running:
-
-Terminal 1 (API):
-```bash
-cd hardware/api
-uvicorn main:app --reload --host 0.0.0.0 --port 8000
-```
-
-Terminal 2 (Hardware - only if using real hardware):
-```bash
-cd hardware
-python RSIDetection.py
-```
-
-Terminal 3 (Frontend):
-```bash
-cd frontend
-npm run dev
-```
+> **Reminder:** Edit `SERIAL_PORT` inside `RSIDetection.py` to match your Arduino port before running these steps.
 
 ## 📊 API Endpoints
 
