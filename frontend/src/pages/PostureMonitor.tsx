@@ -201,7 +201,7 @@ export default function PostureMonitor() {
             <div className="glass rounded-3xl p-6 space-y-4">
               <div className="flex flex-wrap items-center gap-3">
                 <Camera className="h-5 w-5 text-primary" />
-                <h2 className="text-lg font-semibold">Webcam Feed (Local)</h2>
+                <h2 className="text-lg font-semibold">Webcam Feed</h2>
                 {error && (
                   <span className="text-xs text-destructive flex items-center gap-1">
                     <AlertTriangle className="h-3 w-3" />
@@ -319,33 +319,6 @@ export default function PostureMonitor() {
                 ))}
               </div>
             </div>
-          </div>
-        </div>
-
-        <div className="glass rounded-3xl p-6 float-card">
-          <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
-            <div>
-              <h2 className="text-xl font-semibold">Extended diagnostics</h2>
-              <p className="text-xs text-muted-foreground">
-                Additional posture + eye metrics compared to healthy ranges.
-              </p>
-            </div>
-            <div className="text-right text-xs text-muted-foreground">
-              <p>Data source: local CV session</p>
-              <p>Updates every 250ms</p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-            {diagnostics
-              .filter(diagnostic => 
-                !diagnostic.title.toLowerCase().includes('ear') && 
-                !diagnostic.title.toLowerCase().includes('blink') && 
-                !diagnostic.title.toLowerCase().includes('session time')
-              )
-              .map((item) => (
-                <DiagnosticCard key={item.title} {...item} />
-              ))}
           </div>
         </div>
 

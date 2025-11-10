@@ -106,7 +106,7 @@ export default function Auth() {
         
         const firstName = name.split(" ")[0] || "friend";
         toast({
-          title: `Welcome to Posturely, ${firstName}! 🎉`,
+          title: `Welcome to Ergonomiq, ${firstName}! 🎉`,
           description: "Setting up your wellness dashboard...",
         });
 
@@ -192,10 +192,10 @@ export default function Auth() {
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2">
             <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-primary to-accent flex items-center justify-center">
-              <span className="text-lg font-bold text-primary-foreground">P</span>
+              <span className="text-lg font-bold text-primary-foreground">E</span>
             </div>
             <span className="text-xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-              Posturely
+              Ergonomiq
             </span>
           </Link>
 
@@ -218,7 +218,7 @@ export default function Auth() {
           <Tabs defaultValue="login" className="w-full">
             <div className="glass rounded-3xl p-8 shadow-2xl border border-border/50">
               <div className="text-center mb-8">
-                <h1 className="text-3xl font-bold mb-2">Welcome to Posturely</h1>
+                <h1 className="text-3xl font-bold mb-2">Welcome to Ergonomiq</h1>
                 <p className="text-muted-foreground">Your AI-powered desk health companion</p>
               </div>
 
@@ -472,7 +472,18 @@ export default function Auth() {
 
           {/* Footer */}
           <div className="mt-8 text-center text-sm text-muted-foreground">
-            <p>Posturely - Team 777777 @ Nathacks 2025</p>
+            <p>
+              Ergonomiq -{" "}
+              <a
+                href="https://github.com/MisbahAN/777777"
+                target="_blank"
+                rel="noreferrer"
+                className="underline-offset-2 hover:underline"
+              >
+                Team 777777
+              </a>{" "}
+              @ Nathacks 2025
+            </p>
           </div>
         </div>
       </div>
