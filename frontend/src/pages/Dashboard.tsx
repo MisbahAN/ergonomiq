@@ -28,6 +28,7 @@ import {
   Clock,
   Sparkles,
 } from "lucide-react";
+import { hardwareApi, type RsiSession } from "@/lib/hardwareApi";
 
 const dateFormatter = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" });
 
@@ -35,6 +36,7 @@ type CombinedChartPoint = {
   label: string;
   postureQuality?: number;
   blinkRate?: number;
+  wristMinutes?: number;
 };
 
 type AnalyticsPayload = {
@@ -67,16 +69,23 @@ export default function Dashboard() {
   const analytics = data?.user?.analytics;
   const postureSessions = data?.postureSessions ?? [];
   const eyeSessions = data?.eyeSessions ?? [];
+  const { data: rsiAnalytics } = useQuery({
+    queryKey: ["rsiAnalytics", uid],
+    queryFn: () => hardwareApi.getRsiAnalytics(),
+    enabled: !!uid && !hardwareApi.isDisabled,
+    staleTime: 1000 * 30,
+  });
+  const wristSessions = rsiAnalytics?.sessions ?? [];
 
   const hour = new Date().getHours();
   const timeOfDay = hour < 12 ? "morning" : hour < 18 ? "afternoon" : "evening";
   const displayName =
     user?.displayName?.split(" ")[0] ?? user?.email?.split("@")[0] ?? "there";
 
-  const chartData = useMemo(() => buildHabitChart(postureSessions, eyeSessions), [
-    postureSessions,
-    eyeSessions,
-  ]);
+  const chartData = useMemo(
+    () => buildHabitChart(postureSessions, eyeSessions, wristSessions),
+    [postureSessions, eyeSessions, wristSessions]
+  );
 
   const blinkHistory = useMemo(() => buildBlinkHistory(eyeSessions), [eyeSessions]);
 
@@ -180,7 +189,9 @@ export default function Dashboard() {
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h2 className="text-lg font-semibold">Habit trend</h2>
-                <p className="text-xs text-muted-foreground">Posture quality and blink rate averages per day</p>
+                <p className="text-xs text-muted-foreground">
+                  Posture %, blink cadence, and wrist strain minutes per day
+                </p>
               </div>
               <div className="text-xs text-muted-foreground flex items-center gap-4">
                 <span className="flex items-center gap-1">
@@ -188,6 +199,9 @@ export default function Dashboard() {
                 </span>
                 <span className="flex items-center gap-1">
                   <span className="h-2 w-2 rounded-full bg-primary" /> Blinks/min
+                </span>
+                <span className="flex items-center gap-1">
+                  <span className="h-2 w-2 rounded-full bg-orange-400" /> Wrist minutes
                 </span>
               </div>
             </div>
@@ -197,7 +211,19 @@ export default function Dashboard() {
                   <LineChart data={chartData}>
                     <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
                     <XAxis dataKey="label" stroke="hsl(var(--muted-foreground))" tickLine={false} />
-                    <YAxis stroke="hsl(var(--muted-foreground))" tickLine={false} domain={[0, 120]} />
+                    <YAxis
+                      yAxisId="left"
+                      stroke="hsl(var(--muted-foreground))"
+                      tickLine={false}
+                      domain={[0, 120]}
+                    />
+                    <YAxis
+                      yAxisId="right"
+                      orientation="right"
+                      stroke="hsl(var(--muted-foreground))"
+                      tickLine={false}
+                      domain={[0, (dataMax: number) => Math.max(dataMax, 5)]}
+                    />
                     <Tooltip
                       contentStyle={{
                         backgroundColor: "hsl(var(--background))",
@@ -208,6 +234,7 @@ export default function Dashboard() {
                     />
                     <Legend wrapperStyle={{ fontSize: 12 }} />
                     <Line
+                      yAxisId="left"
                       type="monotone"
                       dataKey="postureQuality"
                       name="Posture quality"
@@ -217,6 +244,7 @@ export default function Dashboard() {
                       connectNulls
                     />
                     <Line
+                      yAxisId="left"
                       type="monotone"
                       dataKey="blinkRate"
                       name="Blink rate"
@@ -224,6 +252,16 @@ export default function Dashboard() {
                       strokeWidth={3}
                       strokeDasharray="5 5"
                       dot={false}
+                      connectNulls
+                    />
+                    <Line
+                      yAxisId="right"
+                      type="monotone"
+                      dataKey="wristMinutes"
+                      name="Wrist session (min)"
+                      stroke="#fb923c"
+                      strokeWidth={3}
+                      dot
                       connectNulls
                     />
                   </LineChart>
@@ -373,16 +411,20 @@ const average = (values: number[]): number | undefined => {
 
 const buildHabitChart = (
   postureSessions: PostureSession[],
-  eyeSessions: EyeStrainSession[]
+  eyeSessions: EyeStrainSession[],
+  wristSessions: RsiSession[]
 ): CombinedChartPoint[] => {
-  const map = new Map<string, { date: Date; posture: number[]; blink: number[] }>();
+  const map = new Map<
+    string,
+    { date: Date; posture: number[]; blink: number[]; wrist: number[] }
+  >();
 
   postureSessions.forEach((session) => {
     const date = toDate(session.timestampEnd) ?? toDate(session.timestampStart) ?? new Date();
     const key = dateFormatter.format(date);
     const quality = (1 - clampNumber(session.badRatio)) * 100;
     if (!map.has(key)) {
-      map.set(key, { date, posture: [], blink: [] });
+      map.set(key, { date, posture: [], blink: [], wrist: [] });
     }
     map.get(key)!.posture.push(Number(quality.toFixed(1)));
   });
@@ -391,9 +433,20 @@ const buildHabitChart = (
     const date = toDate(session.timestampStart) ?? new Date();
     const key = dateFormatter.format(date);
     if (!map.has(key)) {
-      map.set(key, { date, posture: [], blink: [] });
+      map.set(key, { date, posture: [], blink: [], wrist: [] });
     }
     map.get(key)!.blink.push(Number(session.avgBlinkRate?.toFixed(1) ?? 0));
+  });
+
+  wristSessions.forEach((session) => {
+    const date = new Date(session.recordedAt);
+    const key = dateFormatter.format(date);
+    if (!map.has(key)) {
+      map.set(key, { date, posture: [], blink: [], wrist: [] });
+    }
+    map
+      .get(key)!
+      .wrist.push(Number((session.durationSeconds / 60).toFixed(2)));
   });
 
   return Array.from(map.values())
@@ -403,6 +456,7 @@ const buildHabitChart = (
       label: dateFormatter.format(entry.date),
       postureQuality: average(entry.posture),
       blinkRate: average(entry.blink),
+      wristMinutes: average(entry.wrist),
     }));
 };
 

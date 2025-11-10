@@ -33,7 +33,8 @@ export default function WristMonitor() {
 
   const chartPoints = useMemo(() => {
     if (!sessions.length) return [];
-    return sessions.map((session, index) => ({
+    const recentSessions = sessions.slice(-5);
+    return recentSessions.map((session, index) => ({
       label:
         new Date(session.recordedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) ??
         `Session ${index + 1}`,
@@ -48,8 +49,10 @@ export default function WristMonitor() {
     if (hardwareApi.isDisabled) return { label: "API disabled", variant: "destructive" as const };
     if (error) return { label: "Device offline", variant: "destructive" as const };
     if (isFetching) return { label: "Syncing…", variant: "secondary" as const };
-    return { label: "Live", variant: "default" as const };
+    return { label: "Local", variant: "default" as const };
   })();
+
+  const axisTickColor = "hsl(var(--foreground))";
 
   return (
     <div className="min-h-screen pb-16">
@@ -57,13 +60,16 @@ export default function WristMonitor() {
         <header className="space-y-3">
           <div className="flex items-center gap-3">
             <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-              BioAmp Wrist Monitor
+              Wrist Strain Coach
             </h1>
             <Badge variant={statusBadge.variant}>{statusBadge.label}</Badge>
           </div>
           <p className="text-muted-foreground max-w-3xl">
-            Stream wristband detections, log RSI-heavy typing streaks, and trend your recovery over time.
-            This view refreshes automatically every few seconds while the hardware shim posts to <code>/rsi</code>.
+            Stream Wirless Patch detections, log RSI-heavy typing streaks, and trend your recovery over time.
+          </p>
+          <p className="text-sm text-muted-foreground max-w-3xl">
+            Built by Team 777777 during Nathacks 2025, this coach currently runs locally on your machine while we
+            finish the Wirless Patch wearable—hardware coming soon.
           </p>
           <div className="flex items-center gap-3">
             <Button
@@ -84,19 +90,19 @@ export default function WristMonitor() {
 
         {hardwareApi.isDisabled && (
           <Alert variant="destructive">
-            <AlertTriangle className="h-4 w-4" />
-            <AlertTitle>Hardware API disabled</AlertTitle>
-            <AlertDescription>
-              Set <code>VITE_HARDWARE_API_URL</code> (or run <code>uvicorn hardware.api.main:app --reload</code>) so
-              the BioAmp wristband can post typing sessions to <code>http://localhost:8000/rsi</code>.
-            </AlertDescription>
-          </Alert>
-        )}
+              <AlertTriangle className="h-4 w-4" />
+              <AlertTitle>Hardware API disabled</AlertTitle>
+              <AlertDescription>
+                Set <code>VITE_HARDWARE_API_URL</code> (or run <code>uvicorn hardware.api.main:app --reload</code>) so
+                the Wirless Patch shim can post typing sessions to <code>http://localhost:8000/rsi</code>.
+              </AlertDescription>
+            </Alert>
+          )}
 
         {error && !hardwareApi.isDisabled && (
           <Alert variant="destructive">
             <AlertTriangle className="h-4 w-4" />
-            <AlertTitle>Unable to reach the wrist API</AlertTitle>
+            <AlertTitle>Unable to reach the patch API</AlertTitle>
             <AlertDescription>
               Check that the FastAPI shim is running on port 8000. The page will retry automatically.
             </AlertDescription>
@@ -137,7 +143,7 @@ export default function WristMonitor() {
                   <BarChart3 className="h-5 w-5 text-primary" />
                   Typing Session Trend
                 </CardTitle>
-                <CardDescription>Most recent {chartPoints.length || 0} wrist detections</CardDescription>
+                <CardDescription>Most recent {chartPoints.length || 0} Wirless Patch detections</CardDescription>
               </div>
             </CardHeader>
             <CardContent className="h-72">
@@ -154,11 +160,11 @@ export default function WristMonitor() {
                     <XAxis
                       dataKey="label"
                       tickFormatter={(value) => value}
-                      tick={{ fill: "var(--muted-foreground)" }}
+                      tick={{ fill: axisTickColor }}
                     />
                     <YAxis
                       unit="s"
-                      tick={{ fill: "var(--muted-foreground)" }}
+                      tick={{ fill: axisTickColor }}
                       width={60}
                       domain={[0, (dataMax: number) => Math.max(dataMax, 5)]}
                     />
@@ -177,7 +183,7 @@ export default function WristMonitor() {
                 </ResponsiveContainer>
               ) : (
                 <div className="h-full flex items-center justify-center text-muted-foreground text-sm">
-                  Waiting for the first wrist interval to finish…
+                  Waiting for the first Wirless Patch interval to finish…
                 </div>
               )}
             </CardContent>
@@ -186,7 +192,7 @@ export default function WristMonitor() {
           <Card className="glass border-border/40">
             <CardHeader>
               <CardTitle>Recent Sessions</CardTitle>
-              <CardDescription>Latest BioAmp typing streaks</CardDescription>
+              <CardDescription>Last few wrist strain typing streaks</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               {sessions.slice(-6).reverse().map((session) => (
@@ -209,16 +215,18 @@ export default function WristMonitor() {
                 </div>
               ))}
               {!sessions.length && (
-                <p className="text-sm text-muted-foreground">No wrist sessions logged yet.</p>
+                <p className="text-sm text-muted-foreground">No Wirless Patch sessions logged yet.</p>
               )}
             </CardContent>
           </Card>
         </div>
 
-        <Card className="glass border border-border/40">
+        <Card className="glass border border-border/40 max-w-4xl mx-auto w-full">
           <CardHeader>
-            <CardTitle>Detection feed</CardTitle>
-            <CardDescription>Real-time sustained activation events reported by the wrist module</CardDescription>
+            <CardTitle>Strain event feed</CardTitle>
+            <CardDescription>
+              Plain-language alerts for every spike the Wirless Patch detects during a typing session.
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             {detections.slice(-8).reverse().map((event) => (
@@ -232,10 +240,10 @@ export default function WristMonitor() {
                   </div>
                   <div>
                     <p className="text-sm font-semibold text-foreground">
-                      Envelope {event.meanEnvelope?.toFixed(2) ?? "—"}
+                      Strain level: {event.meanEnvelope?.toFixed(2) ?? "N/A"}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      t={event.timecodeSeconds?.toFixed(2) ?? "—"}s in-session
+                      Time in session: {event.timecodeSeconds?.toFixed(2) ?? "N/A"}s
                     </p>
                   </div>
                 </div>
@@ -245,7 +253,9 @@ export default function WristMonitor() {
               </div>
             ))}
             {!detections.length && (
-              <p className="text-sm text-muted-foreground">Waiting for the first sustained activation event.</p>
+              <p className="text-sm text-muted-foreground">
+                No strain alerts yet. Keep typing and we will surface the first risky interval here.
+              </p>
             )}
           </CardContent>
         </Card>
