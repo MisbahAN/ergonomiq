@@ -22,9 +22,7 @@ HOW TO RUN THIS FILE:
 '''
 
 
-
-# Configure serial port
-SERIAL_PORT = 'COM17'  # Replace with your Arduino's port
+SERIAL_PORT = '/dev/cu.usbmodem1201'  # Replace with your Arduino's port
 BAUD_RATE = 9600      # Match the Arduino's serial rate
 
 # Band-pass filter parameters
@@ -43,7 +41,7 @@ BREAK_TOLERANCE = 1
 
 # Initialize serial connection
 try:
-    board = pyfirmata.ArduinoMega('COM17', baudrate=BAUD_RATE)
+    board = pyfirmata.ArduinoMega(SERIAL_PORT, baudrate=BAUD_RATE)
     it = pyfirmata.util.Iterator(board)
     it.start()
 except Exception as e:

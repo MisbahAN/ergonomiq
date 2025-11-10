@@ -1,3 +1,4 @@
+import os
 import serial
 import time
 import matplotlib.pyplot as plt
@@ -47,10 +48,31 @@ rsi_risk_accumulated = 0.0
 last_rsi_check_time = time.time()
 
 API_ENDPOINT = "http://localhost:8000/rsi"
+VIBRATE_ENDPOINT = os.environ.get("VIBRATE_ENDPOINT", "http://localhost:8000/vibrate")
+VIBRATE_TIMEOUT_SECONDS = float(os.environ.get("VIBRATE_TIMEOUT", 5))
 
 
 envelope_history = []
 envelope_time_history = []
+
+
+def trigger_remote_vibration(reason: str) -> bool:
+    """Fire the vibration motor via the /vibrate Flask endpoint."""
+    try:
+        response = requests.get(
+            VIBRATE_ENDPOINT,
+            params={"reason": reason},
+            timeout=VIBRATE_TIMEOUT_SECONDS,
+        )
+        if response.status_code == 200:
+            print(f"[VIBRATE] Triggered via {VIBRATE_ENDPOINT} ({reason})")
+            return True
+        print(
+            f"[VIBRATE] Endpoint returned {response.status_code}: {response.text[:80]}"
+        )
+    except requests.exceptions.RequestException as exc:
+        print(f"[VIBRATE] Failed to reach endpoint: {exc}")
+    return False
 
 # Initialize serial connection
 try:
@@ -216,9 +238,14 @@ try:
                             requests.post(API_ENDPOINT, json=payload)
                         except requests.exceptions.RequestException as e:
                             print(f"Failed to send detection event: {e}")
-                        board.digital[13].write(1.0)
-                        time.sleep(2)
-                        board.digital[13].write(0.0)
+                        triggered = trigger_remote_vibration("sustained_activation")
+                        if not triggered:
+                            # Fallback to direct board control if HTTP fails
+                            board.digital[13].write(1.0)
+                            time.sleep(2)
+                            board.digital[13].write(0.0)
+                        else:
+                            time.sleep(2)
 
                 else:
                     # Below threshold — check if within grace period
