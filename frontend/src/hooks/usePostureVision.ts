@@ -588,12 +588,12 @@ export function usePostureVision() {
         });
 
         // Draw center line (red vertical line)
-        ctx.strokeStyle = 'rgba(255, 0, 0, 0.7)';
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.moveTo(width / 2, 0);
-        ctx.lineTo(width / 2, height);
-        ctx.stroke();
+        // ctx.strokeStyle = 'rgba(255, 0, 0, 0.7)';
+        // ctx.lineWidth = 2;
+        // ctx.beginPath();
+        // ctx.moveTo(width / 2, 0);
+        // ctx.lineTo(width / 2, height);
+        // ctx.stroke();
 
         // Draw shoulder line (green)
         const leftShoulder = landmarks[11];
@@ -630,7 +630,7 @@ export function usePostureVision() {
         if (metrics.level === 'alert') {
           statusColor = '#FF0000'; // Red for alert
         } else if (metrics.level === 'warn') {
-          statusColor = '#FFA500'; // Orange for warning
+          statusColor = '#00FF00'; // Orange for warning
         }
         
         ctx.save();
@@ -877,7 +877,7 @@ export function usePostureVision() {
       const hasAlerts = alerts.length > 0;
       const hasWarnings = !hasAlerts && warnings.length > 0; // Only show warning if no alerts
 
-      const status = hasAlerts ? "POOR POSTURE" : hasWarnings ? "POSTURE WARNING" : "Good Posture";
+      const status = hasAlerts ? "POOR POSTURE" : hasWarnings ? "Good Posture" : "Good Posture";
       const level: PostureLevel = hasAlerts ? "alert" : hasWarnings ? "warn" : "ok";
 
       // Play alert sound and send POST request only if poor posture (alert) detected, not for warnings
