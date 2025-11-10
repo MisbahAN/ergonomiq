@@ -34,7 +34,7 @@ SAMPLING_RATE = 500   # Sampling rate in Hz (update to your actual rate)
 ENVELOPE_CUTOFF = 10  # Low-pass filter cutoff for envelope extraction (in Hz)
 ENVELOPE_PROMINENCE = 0.3 # Promonience for the envelope peak detection
 ENVELOPE_HEIGHT = 5 
-THRESHOLD_STD_MULTIPLIER = 1.5
+THRESHOLD_STD_MULTIPLIER = 1.5 #can be tuned
 SUSTAIN_DURATION = 2
 ENVELOPE_WIDTH = 0.0025 
 BREAK_TOLERANCE = 1
@@ -55,24 +55,6 @@ VIBRATE_TIMEOUT_SECONDS = float(os.environ.get("VIBRATE_TIMEOUT", 5))
 envelope_history = []
 envelope_time_history = []
 
-
-def trigger_remote_vibration(reason: str) -> bool:
-    """Fire the vibration motor via the /vibrate Flask endpoint."""
-    try:
-        response = requests.get(
-            VIBRATE_ENDPOINT,
-            params={"reason": reason},
-            timeout=VIBRATE_TIMEOUT_SECONDS,
-        )
-        if response.status_code == 200:
-            print(f"[VIBRATE] Triggered via {VIBRATE_ENDPOINT} ({reason})")
-            return True
-        print(
-            f"[VIBRATE] Endpoint returned {response.status_code}: {response.text[:80]}"
-        )
-    except requests.exceptions.RequestException as exc:
-        print(f"[VIBRATE] Failed to reach endpoint: {exc}")
-    return False
 
 # Initialize serial connection
 try:
@@ -229,6 +211,9 @@ try:
                         activation_triggered = True
                         activation_start_time = None
                         print(f"[DETECTION] Sustained activation detected at t = {current_time:.2f}s (mean envelope = {mean_env:.2f})")
+                        board.digital[13].write(1.0)
+                        time.sleep(2)
+                        board.digital[13].write(0.0)
                         try:
                             payload = {
                                 "event_type": "detection",
@@ -238,12 +223,8 @@ try:
                             requests.post(API_ENDPOINT, json=payload)
                         except requests.exceptions.RequestException as e:
                             print(f"Failed to send detection event: {e}")
-                        triggered = trigger_remote_vibration("sustained_activation")
-                        if not triggered:
-                            # Fallback to direct board control if HTTP fails
-                            board.digital[13].write(1.0)
-                            time.sleep(2)
-                            board.digital[13].write(0.0)
+                        
+
                         else:
                             time.sleep(2)
 
