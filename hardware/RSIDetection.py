@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from scipy.signal import butter, filtfilt, find_peaks
 import pyfirmata
+import requests
 
 
 '''
@@ -44,6 +45,9 @@ PEAK_PROMINENCE = 0.3    # How strong envelope peaks must be
 rsi_risk_start_time = None
 rsi_risk_accumulated = 0.0
 last_rsi_check_time = time.time()
+
+API_ENDPOINT = "http://localhost:8000/rsi"
+
 
 envelope_history = []
 envelope_time_history = []
@@ -203,6 +207,15 @@ try:
                         activation_triggered = True
                         activation_start_time = None
                         print(f"[DETECTION] Sustained activation detected at t = {current_time:.2f}s (mean envelope = {mean_env:.2f})")
+                        try:
+                            payload = {
+                                "event_type": "detection",
+                                "time": current_time,
+                                "mean_envelope": mean_env
+                            }
+                            requests.post(API_ENDPOINT, json=payload)
+                        except requests.exceptions.RequestException as e:
+                            print(f"Failed to send detection event: {e}")
                         board.digital[13].write(1.0)
                         time.sleep(2)
                         board.digital[13].write(0.0)
@@ -223,6 +236,15 @@ try:
                             elapsed_risk_time = current_time - rsi_risk_start_time
                             rsi_risk_accumulated += elapsed_risk_time
                             print(f"[RSI] End of risk interval (+{elapsed_risk_time:.2f}s). Total RSI risk time: {rsi_risk_accumulated:.2f}s")
+                            try:
+                                payload = {
+                                    "event_type": "rsi_interval",
+                                    "elapsed_time": elapsed_risk_time,
+                                    "total_time": rsi_risk_accumulated
+                                }
+                                requests.post(API_ENDPOINT, json=payload)
+                            except requests.exceptions.RequestException as e:
+                                print(f"Failed to send RSI Interval event: {e}")
                             rsi_risk_start_time = None
                         # --- [RSI TIMER END] ---
 
