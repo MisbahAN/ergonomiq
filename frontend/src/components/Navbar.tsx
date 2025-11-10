@@ -11,7 +11,7 @@ export function Navbar() {
           <Link to="/" className="flex items-center gap-2 font-bold text-xl">
             <Activity className="h-6 w-6 text-primary" />
             <span className="bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-              Posturely
+              Ergonomiq
             </span>
           </Link>
           
@@ -21,7 +21,7 @@ export function Navbar() {
               asChild 
               className="rounded-full bg-primary hover:bg-primary-dark text-primary-foreground font-medium px-6"
             >
-              <Link to="/auth">Try it now</Link>
+              <Link to="/auth">Try now</Link>
             </Button>
           </div>
         </div>

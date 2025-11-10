@@ -8,23 +8,39 @@ export function Footer() {
           <div className="flex items-center gap-2">
             <Activity className="h-5 w-5 text-primary" />
             <span className="font-bold text-lg bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-              Posturely
+              Ergonomiq
             </span>
           </div>
           
           <div className="text-center md:text-right">
             <p className="text-muted-foreground">
               Built by{" "}
-              <span className="font-semibold text-primary">Team 777777</span>
+              <a
+                className="font-semibold text-primary hover:underline"
+                href="https://github.com/MisbahAN/777777"
+                target="_blank"
+                rel="noreferrer"
+              >
+                Team 777777
+              </a>
             </p>
-            <p className="text-sm text-muted-foreground mt-1">
-              Nathacks 2025
-            </p>
+            <p className="text-sm text-muted-foreground mt-1">Nathacks 2025 · ergonomiq.dev</p>
           </div>
         </div>
         
         <div className="mt-8 pt-8 border-t text-center text-sm text-muted-foreground">
-          <p>© 2025 Posturely. All rights reserved.</p>
+          <p>
+            © 2025{" "}
+            <a
+              href="https://www.ergonomiq.dev"
+              className="font-semibold hover:underline"
+              target="_blank"
+              rel="noreferrer"
+            >
+              Ergonomiq.dev
+            </a>
+            . All rights reserved.
+          </p>
         </div>
       </div>
     </footer>

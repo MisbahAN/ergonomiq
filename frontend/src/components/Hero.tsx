@@ -12,19 +12,23 @@ export function Hero() {
       <div className="max-w-5xl mx-auto text-center">
         <div className="inline-flex items-center gap-2 glass rounded-full px-4 py-2 mb-8 animate-fade-in">
           <span className="h-2 w-2 rounded-full bg-primary animate-pulse" />
-          <span className="text-sm font-medium">Client-side CV · Wristband-ready</span>
+          <span className="text-sm font-medium">
+            Can you code for 8 hours straight without pain? What about when you're 35?
+          </span>
         </div>
         
         <h1 className="text-5xl md:text-7xl font-bold mb-6 leading-tight animate-fade-in">
-          Unified neck &amp; eye coach{" "}
+          Real-time ergonomic coaching{" "}
           <span className="bg-gradient-to-r from-primary via-accent to-primary-dark bg-clip-text text-transparent">
-            for desk workers
+            for young tech teams
           </span>
         </h1>
         
         <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-10 animate-fade-in">
-          Posture calibration, neck-drop alerts, blink-rate analytics, and an upcoming BioAmp-powered wristband -
-          all in one dashboard and deployable on Vercel without a backend.
+          We help young tech workers break the bad ergonomic habits they are building right now with real-time physical feedback and data analytics that show exactly when and how you're damaging your body before it becomes permanent.
+        </p>
+        <p className="text-base md:text-lg text-muted-foreground max-w-3xl mx-auto mb-12 animate-fade-in">
+          Ergonomiq combines computer-vision posture tracking with a sensor-packed Wirless Patch that detects harmful hand angles and muscle strain, then syncs everything into a SaaS dashboard. You get vibration nudges in the moment plus charts, trends, and proof of how your desk habits are helping or hurting you. It is a Fitbit for workspace ergonomics.
         </p>
         
         <div className="flex flex-col sm:flex-row gap-4 justify-center animate-fade-in">
@@ -34,21 +38,14 @@ export function Hero() {
             className="rounded-full bg-primary hover:bg-primary-dark text-primary-foreground font-semibold text-lg px-8 py-6 shadow-lg hover:shadow-xl transition-all hover:scale-105"
           >
             <Link to="/auth">
-              Launch monitor
+              Try now
               <ArrowRight className="ml-2 h-5 w-5" />
             </Link>
           </Button>
-          <Button 
-            asChild 
-            size="lg"
-            variant="outline"
-            className="rounded-full glass border-2 font-semibold text-lg px-8 py-6 hover:bg-primary/10 transition-all"
-          >
-            <Link to="#features">
-              Explore platform
-            </Link>
-          </Button>
         </div>
+        <p className="text-sm md:text-base text-muted-foreground max-w-2xl mx-auto mt-6 animate-fade-in">
+          So here's the choice: do you track and fix this now with data, or discover the damage in five years when it's too late?
+        </p>
       </div>
     </section>
   );

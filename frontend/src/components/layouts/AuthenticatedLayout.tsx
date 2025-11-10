@@ -60,7 +60,16 @@ export function AuthenticatedLayout({ children }: AuthenticatedLayoutProps) {
       <footer className="border-t border-border/50 mt-12">
         <div className="max-w-7xl mx-auto px-8 py-6 text-center">
           <p className="text-xs text-muted-foreground hover:text-primary transition-colors cursor-default inline-block hover-scale">
-            Posturely · Team 777777 · Nathacks 2025
+            Ergonomiq ·{" "}
+            <a
+              className="underline-offset-2 hover:underline"
+              href="https://github.com/MisbahAN/777777"
+              target="_blank"
+              rel="noreferrer"
+            >
+              Team 777777
+            </a>{" "}
+            · Nathacks 2025
           </p>
         </div>
       </footer>

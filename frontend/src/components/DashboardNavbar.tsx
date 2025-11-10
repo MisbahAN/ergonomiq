@@ -37,7 +37,7 @@ export function DashboardNavbar() {
           <Link to="/" className="flex items-center gap-2 font-bold text-xl">
             <Activity className="h-6 w-6 text-primary" />
             <span className="bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-              Posturely
+              Ergonomiq
             </span>
           </Link>
           

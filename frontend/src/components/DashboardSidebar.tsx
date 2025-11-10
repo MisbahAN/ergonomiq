@@ -11,9 +11,9 @@ export function DashboardSidebar() {
       <div className="p-6 border-b border-[#1a1a1a]">
         <div className="flex items-center gap-2 mb-1">
           <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-primary to-accent flex items-center justify-center">
-            <span className="text-lg font-bold text-primary-foreground font-['Space_Mono']">P</span>
+            <span className="text-lg font-bold text-primary-foreground font-['Space_Mono']">E</span>
           </div>
-          <span className="text-sm font-bold font-['Space_Mono'] tracking-wider">POSTURELY</span>
+          <span className="text-sm font-bold font-['Space_Mono'] tracking-wider">ERGONOMIQ</span>
         </div>
         <p className="text-[10px] text-muted-foreground font-['Space_Mono'] tracking-wide">DESK HEALTH OS</p>
       </div>

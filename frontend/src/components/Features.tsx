@@ -1,13 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import {
-  Activity,
-  Hand,
-  Eye,
-  Lightbulb,
-  RefreshCw,
-  BarChart3,
-  Sparkles,
-} from "lucide-react";
+import { Activity, Hand, Eye } from "lucide-react";
 
 const SCROLL_SPEED = 0.3;
 const DUPLICATE_SETS = 10;
@@ -15,45 +7,21 @@ const DUPLICATE_SETS = 10;
 const features = [
   {
     icon: Activity,
-    title: "Neck calibration + drop % alerts",
+    title: "Posture analytics + monitoring",
     description:
-      "30-frame baseline mirrors our Python CV model, then calls out neck drop, head tilt, and uneven shoulders live.",
-  },
-  {
-    icon: Eye,
-    title: "Blink + EAR monitoring",
-    description:
-      "MediaPipe face mesh computes Eye Aspect Ratio, blinks/min, and 20-20-20 reminders without sending video to servers.",
+      "Track head tilt, shoulder drift, and spine alignment live, then log every session as a posture score you can trend.",
   },
   {
     icon: Hand,
-    title: "Break + stretch guidance",
+    title: "Wrist strain analytics + monitoring",
     description:
-      "Micro-break cadence pairs with guided hand, neck, and shoulder resets so you can stay loose without extra hardware.",
+      "The Wirless Patch captures wrist angles and muscle strain in real time, flagging risky intervals with timestamps.",
   },
   {
-    icon: Lightbulb,
-    title: "Local-first deployment",
+    icon: Eye,
+    title: "Eye strain analytics + monitoring",
     description:
-      "Everything runs in-browser, so you can ship on Vercel with zero backend services or GPU hosting.",
-  },
-  {
-    icon: RefreshCw,
-    title: "Break automation",
-    description:
-      "Session timers and strain heuristics schedule micro-breaks, stretches, and hydration nudges before fatigue settles in.",
-  },
-  {
-    icon: BarChart3,
-    title: "Actionable analytics",
-    description:
-      "Unified dashboard surfaces posture quality, blink consistency, and break adherence with trend lines.",
-  },
-  {
-    icon: Sparkles,
-    title: "Ergonomic coaching",
-    description:
-      "Context-aware tips translate sensor readings into human advice - monitor height, seating tweaks, lighting, and more.",
+      "Blink rate and distance cues alert you the moment you lean in or stop blinking, with history that proves progress.",
   },
 ];
 
@@ -148,15 +116,15 @@ export function Features() {
               {repeatedFeatures.map((feature, index) => (
                 <div
                   key={`${feature.title}-${index}`}
-                  className="w-[22rem] h-72 flex-shrink-0 rounded-[3rem] border border-white/20 dark:border-white/10 shadow-lg bg-white/80 dark:bg-[#292a2c]/80 backdrop-blur-md transition-all duration-500 hover:scale-[1.02] hover:shadow-[0_25px_60px_rgba(255,93,174,0.25)] flex flex-col items-center justify-center text-center px-10"
+                  className="w-[22rem] h-72 flex-shrink-0 rounded-[3rem] border border-white/20 dark:border-white/10 shadow-lg bg-white/80 dark:bg-[#292a2c]/80 backdrop-blur-md transition-all duration-500 hover:scale-[1.02] hover:shadow-[0_25px_60px_rgba(255,93,174,0.25)] flex flex-col items-center justify-start text-center px-10 py-8 gap-4"
                 >
-                  <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-2xl text-[#ff5dae]">
+                  <div className="flex h-16 w-16 items-center justify-center rounded-2xl text-[#ff5dae]">
                     <feature.icon className="h-8 w-8" />
                   </div>
-                  <h3 className="text-2xl font-semibold mb-3 text-gray-800 dark:text-gray-200">
+                  <h3 className="text-2xl font-semibold text-gray-800 dark:text-gray-200">
                     {feature.title}
                   </h3>
-                  <p className="text-base leading-relaxed text-gray-600 dark:text-gray-300">
+                  <p className="text-sm leading-relaxed text-gray-600 dark:text-gray-300">
                     {feature.description}
                   </p>
                 </div>
