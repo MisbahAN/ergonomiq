@@ -68,8 +68,8 @@ The project is composed of two main components:
 - Node.js (v18 or higher)
 - Python 3.8 or higher
 - Arduino Mega or compatible board with StandardFirmata
-- EMG sensors (e.g., MyoWare Muscle Sensor)
-- Camera access for posture monitoring
+- **BioAmp EXG Pill** sensor + Motion Vibrato module (for the wrist monitor)
+- Camera access for posture monitoring (works directly on [ergonomiq.dev](https://www.ergonomiq.dev/))
 
 ### Complete System Setup
 
@@ -107,32 +107,43 @@ The project is composed of two main components:
    pip install pyfirmata scipy matplotlib numpy
    ```
 
-5. **Hardware Setup**
+5. **Hardware Wiring**
    - Upload `StandardFirmata.ino` to your Arduino
-   - Connect EMG sensors to analog pin A0
-   - Connect LED to digital pin 13 (optional)
-   - Update `SERIAL_PORT` in `RSIDetection.py` with your device port
+   - Wire the **BioAmp EXG Pill** to analog pin A0 (plus VCC/GND rails)
+   - Wire the **Motion Vibrato** (motor driver) to digital pin 13 for haptic cues
+   - Update `SERIAL_PORT` in `hardware/RSIDetection.py` with your Arduino port
 
 6. **Run the complete system**
-   Terminal 1 (Hardware API):
-   ```bash
-   cd hardware/api
-   uvicorn main:app --reload --host 0.0.0.0 --port 8000
-   ```
+   - Terminal 1 (frontend):
+     ```bash
+     cd frontend
+     npm run dev
+     ```
+   - Terminal 2 (hardware API shim):
+     ```bash
+     cd hardware/api
+     conda activate nh25
+     uvicorn main:app --reload --host 0.0.0.0 --port 8000
+     ```
+   - Terminal 3 (hardware demos):
+     ```bash
+     cd hardware
+     conda activate nh25
+     # Wrist monitor (requires our Wireless Patch hardware)
+     python RSIDetection.py
 
-   Terminal 2 (Hardware Detection - if using real hardware):
-   ```bash
-   cd hardware
-   python RSIDetection.py
-   ```
+     # Posture monitor demo stream
+     python posture.py
+     ```
+   These steps mirror the detailed instructions in `hardware/README.md`.
 
-   Terminal 3 (Frontend):
-   ```bash
-   cd frontend
-   npm run dev
-   ```
+The application will be available at `http://localhost:5173`.
 
-The application will be available at `http://localhost:5173`
+> The full posture + eye experience already runs live at [https://www.ergonomiq.dev/](https://www.ergonomiq.dev/). The wrist monitor currently requires our BioAmp EXG Pill hardware until the Wireless Patch wearable ships; without it, the dashboard simply hides those live readings.
+
+### Running Without the Wrist Patch
+- Posture, blink, and analytics features work out-of-the-box via webcam (locally or on [ergonomiq.dev](https://www.ergonomiq.dev/)).
+- Without the BioAmp EXG Pill hardware connected, the Wrist Strain Coach simply shows a placeholder state while the rest of the platform continues to function.
 
 ## 📁 Directory Structure
 
@@ -152,9 +163,8 @@ The application will be available at `http://localhost:5173`
 │   │   ├── main.py     # API endpoints for RSI analytics
 │   │   └── requirements.txt
 │   ├── StandardFirmata.ino  # Arduino firmware
-│   ├── RSIDetection.py      # EMG processing and detection
-│   ├── debug.py             # Simulated data for development
-│   └── posture.py           # Haptic feedback server
+│   ├── RSIDetection.py      # EMG processing + wrist telemetry
+│   └── posture.py           # Posture monitor demo script
 ├── README.md           # This file
 └── .gitignore
 ```
@@ -194,20 +204,18 @@ The application will be available at `http://localhost:5173`
 ## 🧪 Development
 
 ### Running with Simulated Hardware
-If you don't have the hardware, you can still develop the frontend with simulated data:
+If you don’t have the BioAmp EXG Pill connected, you can still demo posture + eye flows:
 
 1. Start the API server:
    ```bash
    cd hardware/api
    uvicorn main:app --reload --host 0.0.0.0 --port 8000
    ```
-
-2. Send simulated data:
+2. Replay the posture monitor pipeline:
    ```bash
    cd hardware
-   python debug.py
+   python posture.py
    ```
-
 3. Start the frontend:
    ```bash
    cd frontend
@@ -215,9 +223,9 @@ If you don't have the hardware, you can still develop the frontend with simulate
    ```
 
 ### Using Real Hardware
-1. Ensure your Arduino is connected with StandardFirmata uploaded
+1. Ensure your Arduino has StandardFirmata uploaded
 2. Update the serial port in `hardware/RSIDetection.py`
-3. Run the detection script: `python hardware/RSIDetection.py`
+3. Run `python hardware/RSIDetection.py` (BioAmp EXG Pill + Motion Vibrato required)
 4. Start the API server: `uvicorn hardware/api/main:app --reload --host 0.0.0.0 --port 8000`
 5. Start the frontend: `npm run dev`
 
@@ -264,26 +272,6 @@ If you don't have the hardware, you can still develop the frontend with simulate
 - **Longest Session**: Longest continuous risk period
 - **Detection Events**: Number of high-risk muscle activations
 
-## 🤝 Contributing
-
-We welcome contributions to improve the Ergonomiq system! To contribute:
-
-1. Fork the repository
-2. Create a feature branch: `git checkout -b feature/amazing-feature`
-3. Make your changes in the appropriate directory (frontend or hardware)
-4. Test your changes thoroughly
-5. Add documentation if needed
-6. Commit your changes: `git commit -m 'Add amazing feature'`
-7. Push to the branch: `git push origin feature/amazing-feature`
-8. Open a Pull Request
-
-### Development Guidelines
-- Follow existing code style and conventions
-- Add tests where appropriate
-- Update documentation for new features
-- Keep frontend and hardware changes separate in commits when possible
-- Ensure security and privacy considerations in data handling
-
 ## 🏷️ Built With
 
 ### Frontend Stack
@@ -302,20 +290,9 @@ We welcome contributions to improve the Ergonomiq system! To contribute:
 - [SciPy/NumPy](https://scipy.org/) - Scientific computing
 - [StandardFirmata](https://github.com/firmata/arduino) - Arduino communication protocol
 
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 🎓 About Nathacks 2025
-
-Built by **Team 777777** during Nathacks 2025, this project represents an innovative approach to workplace wellness that combines AI-powered computer vision with hardware-based biometric monitoring to create a comprehensive ergonomic solution.
-
-## ❤️ Acknowledgments
-
-- The MediaPipe team for providing excellent computer vision tools
-- The Arduino/Firmata community for accessible hardware integration
-- Nathacks 2025 for providing the platform for this innovation
-- Open source communities that made this project possible
-
----
-Made with ❤️ by **Team 777777** for **Nathacks 2025**
+## Nathacks 2025 · Team 777777
+- **Misbah Ahmed Nauman** — [LinkedIn](https://www.linkedin.com/in/misbahan) · [Portfolio](https://www.misbahan.com/)
+- **Aisha Suhail Khan** — [LinkedIn](https://www.linkedin.com/in/aishasuhailkhan/) · [Portfolio](https://aishask.com)
+- **Roshan Banisetti** — [LinkedIn](https://www.linkedin.com/in/roshan-banisetti/) · [Portfolio](https://roshanb-portfolio.vercel.app/)
+- **Jess Manoj** — [LinkedIn](https://www.linkedin.com/in/jess-manoj-68a69b24a/) · [Portfolio](https://jessmanoj.com/)
+- **Fawwaz Hameed** — [LinkedIn](https://www.linkedin.com/in/fawwaz-hameed-32095a238/?skipRedirect=true) · [Portfolio](https://fawwazhameed.wordpress.com/)
