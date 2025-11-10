@@ -1,4 +1,4 @@
-# Team 777777 - Ergonomiq + Wireless Patch
+# Team 777777 - Ergonomiq
 
 A comprehensive ergonomic wellness system built for **Nathacks 2025** that combines computer vision and EMG sensors to monitor and prevent workplace injuries. The system includes both a frontend wellness dashboard and a hardware component for real-time ergonomic feedback.
 
