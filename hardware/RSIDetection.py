@@ -21,7 +21,7 @@ HOW TO RUN THIS FILE:
 '''
 
 # Configure serial port
-SERIAL_PORT = 'COM17'  # Replace with your Arduino's port
+SERIAL_PORT = '/dev/cu.usbmodem1201'  # Replace with your Arduino's port
 BAUD_RATE = 9600      # Match the Arduino's serial rate
 
 # Band-pass filter parameters
@@ -33,7 +33,7 @@ SAMPLING_RATE = 500   # Sampling rate in Hz (update to your actual rate)
 ENVELOPE_CUTOFF = 10  # Low-pass filter cutoff for envelope extraction (in Hz)
 ENVELOPE_PROMINENCE = 0.3 # Promonience for the envelope peak detection
 ENVELOPE_HEIGHT = 5 
-THRESHOLD_STD_MULTIPLIER = 2.2
+THRESHOLD_STD_MULTIPLIER = 1.5
 SUSTAIN_DURATION = 2
 ENVELOPE_WIDTH = 0.0025 
 BREAK_TOLERANCE = 1
