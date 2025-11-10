@@ -880,12 +880,22 @@ export function usePostureVision() {
       const status = hasAlerts ? "POOR POSTURE" : hasWarnings ? "POSTURE WARNING" : "Good Posture";
       const level: PostureLevel = hasAlerts ? "alert" : hasWarnings ? "warn" : "ok";
 
-      // Play alert sound only if poor posture (alert) detected, not for warnings
+      // Play alert sound and send POST request only if poor posture (alert) detected, not for warnings
       if (hasAlerts) {
         const now = Date.now();
         if (now - lastAlertRef.current > ALERT_COOLDOWN) {
           console.log('Poor posture detected! Sit upright.');
           playAlertSound();
+          
+          // Send POST request with posture data
+          sendPostureAlert({
+            neckDropPercent: Number(neckDropPercent.toFixed(1)),
+            shoulderTiltDeg: Number((shoulderTilt - baseline.shoulderTilt).toFixed(1)),
+            headTiltDeg: Number((headRoll - baseline.headRoll).toFixed(1)),
+            alerts: alerts,
+            timestamp: now
+          });
+          
           lastAlertRef.current = now;
         }
       }
@@ -1148,4 +1158,31 @@ export function usePostureVision() {
     sessionPayload,
     clearSessionPayload,
   };
+}
+
+// Add POST request function for sending alerts to endpoint
+async function sendPostureAlert(postureData: {
+  neckDropPercent: number,
+  shoulderTiltDeg: number,
+  headTiltDeg: number,
+  alerts: string[],
+  timestamp: number
+}) {
+  try {
+    const response = await fetch('http://localhost:8000/vibrate', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(postureData),
+    });
+    
+    if (!response.ok) {
+      console.error('Failed to send vibration alert:', response.status, response.statusText);
+    } else {
+      console.log('Vibration alert sent successfully');
+    }
+  } catch (error) {
+    console.error('Error sending vibration alert:', error);
+  }
 }
