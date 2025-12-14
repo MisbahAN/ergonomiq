@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Activity, Hand, Eye } from "lucide-react";
 
 const SCROLL_SPEED = 0.3;
-const DUPLICATE_SETS = 10;
+const DUPLICATE_SETS = 2;
 
 const features = [
   {
@@ -44,7 +44,7 @@ export function Features() {
     if (!belt) return;
 
     const updateWidth = () => {
-      beltWidthRef.current = belt.scrollWidth / 2;
+      beltWidthRef.current = belt.scrollWidth / DUPLICATE_SETS;
     };
 
     updateWidth();
@@ -102,7 +102,7 @@ export function Features() {
           </p>
         </div>
 
-        <div className="my-16 overflow-visible">
+        <div className="my-16 overflow-hidden">
           <div
             className="relative"
             onMouseEnter={() => setIsHovering(true)}
@@ -130,6 +130,14 @@ export function Features() {
                 </div>
               ))}
             </div>
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-y-0 left-0 w-32 bg-gradient-to-r from-background via-background/80 to-transparent dark:from-background dark:via-background/70"
+            />
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-y-0 right-0 w-32 bg-gradient-to-l from-background via-background/80 to-transparent dark:from-background dark:via-background/70"
+            />
           </div>
         </div>
       </div>
